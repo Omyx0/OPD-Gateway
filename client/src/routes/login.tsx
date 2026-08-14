@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Activity, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Activity, Eye, EyeOff, Loader2, Shield, Stethoscope, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,12 +13,12 @@ export const Route = createFileRoute("/login")({
       { title: "Staff Sign In — Smart OPD" },
       {
         name: "description",
-        content: "Mock staff sign-in screen for the Smart OPD operations dashboard.",
+        content: "Staff sign-in screen for the Smart OPD operations dashboard.",
       },
       { property: "og:title", content: "Staff Sign In — Smart OPD" },
       {
         property: "og:description",
-        content: "Mock staff sign-in for the Smart OPD operations dashboard.",
+        content: "Staff sign-in for the Smart OPD operations dashboard.",
       },
     ],
   }),
@@ -49,17 +49,55 @@ function LoginPage() {
     }, 900);
   }
 
+  function useDemoCredentials(roleEmail: string) {
+    setEmail(roleEmail);
+    setPassword("demo123");
+  }
+
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-surface px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-surface px-4 py-8">
       <Card className="w-full max-w-md p-8">
         <span className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
           <Activity className="size-5" aria-hidden />
         </span>
         <h1 className="mt-5 text-2xl font-semibold tracking-tight">Staff sign in</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Demonstration only — no credentials are verified or stored. Use any email and password to
-          continue.
+          Sign in to access the Smart OPD operations dashboard.
         </p>
+
+        {/* Demo Credentials Section */}
+        <div className="mt-6 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-primary">Use Demo Credentials</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={() => useDemoCredentials("admin@opd.com")}
+              className="w-full justify-start text-xs"
+            >
+              <Shield className="mr-2 size-3 text-red-500" /> Admin
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={() => useDemoCredentials("doctor@opd.com")}
+              className="w-full justify-start text-xs"
+            >
+              <Stethoscope className="mr-2 size-3 text-blue-500" /> Doctor
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={() => useDemoCredentials("staff@opd.com")}
+              className="w-full justify-start text-xs"
+            >
+              <Users className="mr-2 size-3 text-green-500" /> Staff
+            </Button>
+          </div>
+        </div>
 
         <form className="mt-6 space-y-4" onSubmit={submit}>
           <div className="space-y-2">
