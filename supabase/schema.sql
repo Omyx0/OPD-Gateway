@@ -15,7 +15,7 @@ CREATE TABLE profiles (
 CREATE TABLE user_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    role TEXT NOT NULL CHECK (role IN ('STAFF', 'DOCTOR', 'ADMIN')),
+    role TEXT NOT NULL CHECK (role IN ('STAFF', 'DOCTOR', 'ADMIN', 'PATIENT')),
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(user_id, role)
 );
@@ -173,6 +173,71 @@ CREATE TABLE ai_interactions (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 15. Prescriptions
+CREATE TABLE prescriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    visit_id UUID REFERENCES visits(id) ON DELETE CASCADE,
+    doctor_id UUID REFERENCES doctors(id) ON DELETE SET NULL,
+    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+    medications JSONB NOT NULL,
+    instructions TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 16. Lab Orders
+CREATE TABLE lab_orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    visit_id UUID REFERENCES visits(id) ON DELETE CASCADE,
+    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+    doctor_id UUID REFERENCES doctors(id) ON DELETE SET NULL,
+    test_name TEXT NOT NULL,
+    status TEXT DEFAULT 'PENDING',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 17. Lab Results
+CREATE TABLE lab_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lab_order_id UUID REFERENCES lab_orders(id) ON DELETE CASCADE,
+    result_data JSONB,
+    report_url TEXT,
+    published_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 18. Patient Documents
+CREATE TABLE patient_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+    document_type TEXT,
+    document_url TEXT NOT NULL,
+    uploaded_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 19. Feedback
+CREATE TABLE feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    visit_id UUID REFERENCES visits(id) ON DELETE CASCADE,
+    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    comments TEXT,
+    submitted_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 20. Pre Registrations
+CREATE TABLE pre_registrations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+    department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
+    requested_date DATE NOT NULL,
+    status TEXT DEFAULT 'PENDING',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Function to automatically update the 'updated_at' timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -190,3 +255,7 @@ CREATE TRIGGER update_doctors_updated_at BEFORE UPDATE ON doctors FOR EACH ROW E
 CREATE TRIGGER update_patients_updated_at BEFORE UPDATE ON patients FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_visits_updated_at BEFORE UPDATE ON visits FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_queue_tickets_updated_at BEFORE UPDATE ON queue_tickets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_prescriptions_updated_at BEFORE UPDATE ON prescriptions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_lab_orders_updated_at BEFORE UPDATE ON lab_orders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_lab_results_updated_at BEFORE UPDATE ON lab_results FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_pre_registrations_updated_at BEFORE UPDATE ON pre_registrations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

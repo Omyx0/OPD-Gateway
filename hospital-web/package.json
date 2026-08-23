@@ -1,5 +1,5 @@
 {
-  "name": "smart-opd-client",
+  "name": "hospital-web",
   "private": true,
   "sideEffects": false,
   "type": "module",
