@@ -20,15 +20,60 @@ const DEMO_USERS = [
     name: "Reception Staff",
     role: "STAFF",
   },
+  {
+    email: "patient@opd.com",
+    password: "demo123",
+    name: "Demo Patient",
+    role: "PATIENT",
+  },
 ];
 
 async function seed() {
   logger.info("Starting database seed...");
 
+  // 1. Seed Hospital and Department
+  let hospitalId: string;
+  let deptId: string;
+
+  const { data: hospital, error: hError } = await supabaseAdmin
+    .from("hospitals")
+    .upsert({ name: "General Hospital Demo" }, { onConflict: "id" })
+    .select("id")
+    .limit(1)
+    .single();
+
+  if (hError && hError.code !== 'PGRST116') {
+    // If table has no unique constraint on name, upsert might be tricky, let's just insert if empty
+    const { data: existingHospitals } = await supabaseAdmin.from("hospitals").select("id").limit(1);
+    if (!existingHospitals || existingHospitals.length === 0) {
+      const { data: newH } = await supabaseAdmin.from("hospitals").insert({ name: "General Hospital Demo" }).select("id").single();
+      hospitalId = newH!.id;
+    } else {
+      hospitalId = existingHospitals[0].id;
+    }
+  } else {
+    hospitalId = hospital?.id ?? (await supabaseAdmin.from("hospitals").select("id").limit(1).single()).data!.id;
+  }
+
+  const { data: existingDepts } = await supabaseAdmin.from("departments").select("id").eq("code", "CARDIO").limit(1);
+  if (!existingDepts || existingDepts.length === 0) {
+    const { data: newD } = await supabaseAdmin.from("departments").insert({
+      hospital_id: hospitalId,
+      name: "Cardiology",
+      code: "CARDIO"
+    }).select("id").single();
+    deptId = newD!.id;
+  } else {
+    deptId = existingDepts[0].id;
+  }
+
+  logger.info(`Seeded Hospital (${hospitalId}) and Department (${deptId})`);
+
+
+  // 2. Seed Users
   for (const user of DEMO_USERS) {
     logger.info(`Processing user: ${user.email} (${user.role})`);
 
-    // 1. Create or get user in auth.users
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: user.email,
       password: user.password,
@@ -39,53 +84,45 @@ async function seed() {
 
     if (authError) {
       if (authError.message.includes("already registered")) {
-        // User already exists, fetch their ID
         const { data: existingUser } = await supabaseAdmin
           .from("profiles")
           .select("id")
           .eq("email", user.email)
           .single();
         
-        if (!existingUser) {
-          logger.warn(`User ${user.email} exists in auth but not in profiles. Skipping.`);
-          continue;
-        }
+        if (!existingUser) continue;
         userId = existingUser.id;
-        logger.info(`User already exists, updating profile...`);
       } else {
         logger.error(`Failed to create auth user ${user.email}: ${authError.message}`);
         continue;
       }
     } else {
       userId = authData.user.id;
-      logger.info(`Created auth user.`);
     }
 
-    // 2. Ensure profile exists (it might be auto-created by a trigger, but we'll upsert)
-    const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
+    await supabaseAdmin.from("profiles").upsert({
       id: userId,
       email: user.email,
       full_name: user.name,
       is_active: true,
     });
 
-    if (profileError) {
-      logger.error(`Failed to upsert profile for ${user.email}: ${profileError.message}`);
-    }
-
-    // 3. Assign role
-    const { error: roleError } = await supabaseAdmin.from("user_roles").upsert(
-      {
-        user_id: userId,
-        role: user.role,
-      },
+    await supabaseAdmin.from("user_roles").upsert(
+      { user_id: userId, role: user.role },
       { onConflict: "user_id,role" }
     );
 
-    if (roleError) {
-      logger.error(`Failed to assign role ${user.role} to ${user.email}: ${roleError.message}`);
-    } else {
-      logger.info(`Successfully seeded ${user.role} account: ${user.email}`);
+    // If PATIENT, ensure they exist in patients table
+    if (user.role === "PATIENT") {
+      const { data: existingPatient } = await supabaseAdmin.from("patients").select("id").eq("id", userId).limit(1);
+      if (!existingPatient || existingPatient.length === 0) {
+        await supabaseAdmin.from("patients").insert({
+          id: userId,
+          patient_code: "PT-DEMO-001",
+          full_name: user.name,
+          mobile: "9999999999"
+        });
+      }
     }
   }
 

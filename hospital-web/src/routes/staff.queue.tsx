@@ -14,53 +14,92 @@ import { queueService } from "@/services";
 
 const DEPARTMENTS = queueService.listDepartmentNames();
 import { AsyncSection, StateDemoBar, useMockLoad } from "@/components/common/AsyncSection";
-import { useStaffStore } from "@/state/staff-store";
+import { useStaffAuth } from "@/state/staff-auth";
+import { useEffect, useState } from "react";
+import type { QueueEntry } from "@/services/types";
 
 export const Route = createFileRoute("/staff/queue")({
   head: () => ({
     meta: [
       { title: "Live Patient Queue — Smart OPD Staff" },
-      {
-        name: "description",
-        content:
-          "Filter, call, reassign and complete patients in the live OPD queue with priority-aware ordering.",
-      },
-      { property: "og:title", content: "Live Patient Queue — Smart OPD Staff" },
-      {
-        property: "og:description",
-        content: "Call, reassign and complete patients in the live OPD queue.",
-      },
+      { name: "description", content: "Filter, call, reassign and complete patients in the live OPD queue." },
     ],
   }),
   component: QueuePage,
 });
 
 function QueuePage() {
-  const { queue, departmentFilter, setDepartmentFilter, callNext } = useStaffStore();
-  const entries = queue.filter(
-    (e) => departmentFilter === "all" || e.department === departmentFilter,
-  );
-  const waiting = entries.filter((e) => e.status === "WAITING").length;
+  const { user } = useStaffAuth();
+  const [entries, setEntries] = useState<QueueEntry[]>([]);
+  const [departmentFilter, setDepartmentFilter] = useState("all");
   const { phase, setPhase, reload } = useMockLoad();
 
-  const handleCallNext = () => {
-    const next = callNext();
-    if (!next) {
+  const fetchQueue = async () => {
+    try {
+      if (!user?.token) return;
+      const res = await fetch(`${import.meta.env['VITE_API_URL']}/queue`, {
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+      const json = await res.json();
+      
+      const mapped: QueueEntry[] = json.data.map((q: any) => ({
+        id: q.id,
+        token: q.token,
+        patient: { name: q.visits?.patients?.full_name || 'Unknown Patient' },
+        department: q.departments?.name || 'Unknown',
+        priority: q.priority,
+        status: q.status,
+        arrivalTime: new Date(q.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        waitMinutes: Math.floor((Date.now() - new Date(q.arrival_time).getTime()) / 60000),
+      }));
+
+      setEntries(mapped);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Poll every 3 seconds for live updates for the demo
+  useEffect(() => {
+    fetchQueue();
+    const interval = setInterval(fetchQueue, 3000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const filteredEntries = entries.filter(
+    (e) => departmentFilter === "all" || e.department === departmentFilter,
+  );
+  const waiting = filteredEntries.filter((e) => e.status === "WAITING").length;
+
+  const handleCallNext = async () => {
+    const nextWaiting = filteredEntries.find(e => e.status === "WAITING");
+    if (!nextWaiting) {
       toast("No one is waiting", { description: "The selected queue has no waiting patients." });
       return;
     }
-    toast.success(`Called ${next.token}`, {
-      description: `${next.patient.name} · ${next.department}`,
-    });
+    
+    // API call to update status to CALLED
+    try {
+      await fetch(`${import.meta.env['VITE_API_URL']}/queue/${nextWaiting.id}/call`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${user?.token}` }
+      });
+      toast.success(`Called ${nextWaiting.token}`, {
+        description: `${nextWaiting.patient.name} · ${nextWaiting.department}`,
+      });
+      fetchQueue();
+    } catch (err) {
+      toast.error("Failed to call next patient");
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Queue</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Live Real-time Queue</h1>
           <p className="text-sm text-muted-foreground">
-            {waiting} waiting · {entries.length} in view
+            {waiting} waiting · {filteredEntries.length} in view
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -83,19 +122,19 @@ function QueuePage() {
           </Button>
         </div>
       </div>
-      <StateDemoBar phase={phase} onChange={setPhase} className="w-fit" />
+      
       <AsyncSection
         phase={phase}
-        loadingLabel="Updating queue"
+        loadingLabel="Loading live queue"
         skeleton="table"
         errorTitle="Queue didn't load"
-        errorDescription="We couldn't refresh the queue. Patients already called are unaffected — try again."
+        errorDescription="Failed to connect to backend."
         onRetry={reload}
-        isEmpty={entries.length === 0}
+        isEmpty={filteredEntries.length === 0}
         emptyTitle="No patients in this queue"
         emptyDescription="Nobody is waiting in the selected department right now."
       >
-        <QueueTable entries={entries} />
+        <QueueTable entries={filteredEntries} />
       </AsyncSection>
     </div>
   );

@@ -91,11 +91,16 @@ function PatientListPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Patients</h1>
-        <p className="text-sm text-muted-foreground">
-          {results.length} of {queue.length} records (mock data)
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Patients</h1>
+          <p className="text-sm text-muted-foreground">
+            {results.length} of {queue.length} records (mock data)
+          </p>
+        </div>
+        <Button onClick={() => navigate({ to: "/staff/patients/new" })} className="rounded-full bg-teal-600 hover:bg-teal-700 text-white">
+          + Register New Patient
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3">

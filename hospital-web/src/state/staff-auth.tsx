@@ -1,36 +1,85 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { staffService } from "@/services";
-import type { StaffUser } from "@/services";
+import { createContext, useContext, useMemo, useState, useEffect, type ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
 
-/**
- * Frontend-only mock staff session. Nothing is verified, requested or stored —
- * this exists purely so the demo can show a sign-in gate in front of /staff.
- */
+export interface StaffUser {
+  id: string;
+  email: string;
+  role: string;
+  name: string;
+  token?: string;
+}
+
 interface StaffAuthStore {
   user: StaffUser | null;
-  signIn: (email: string) => StaffUser;
-  signOut: () => void;
+  signIn: (email: string, password?: string) => Promise<StaffUser>;
+  signOut: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const StaffAuthContext = createContext<StaffAuthStore | null>(null);
 
 export function StaffAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<StaffUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || "",
+          name: session.user.email?.split('@')[0] || "Staff",
+          role: "STAFF", // Hardcoded for demo, normally would fetch from profiles/roles table
+          token: session.access_token,
+        });
+      }
+      setIsLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || "",
+          name: session.user.email?.split('@')[0] || "Staff",
+          role: "STAFF",
+          token: session.access_token,
+        });
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const value = useMemo<StaffAuthStore>(
     () => ({
       user,
-      signIn: (email: string) => {
-        const next = staffService.signIn(email);
-        setUser(next);
-        return next;
+      isLoading,
+      signIn: async (email: string, password = "demo123") => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        
+        const nextUser: StaffUser = {
+          id: data.user.id,
+          email: data.user.email || "",
+          name: email.split('@')[0],
+          role: "STAFF",
+          token: data.session.access_token,
+        };
+        setUser(nextUser);
+        return nextUser;
       },
-      signOut: () => {
-        staffService.signOut();
+      signOut: async () => {
+        await supabase.auth.signOut();
         setUser(null);
       },
     }),
-    [user],
+    [user, isLoading],
   );
 
   return <StaffAuthContext.Provider value={value}>{children}</StaffAuthContext.Provider>;

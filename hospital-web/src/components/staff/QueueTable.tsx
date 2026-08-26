@@ -49,6 +49,8 @@ import { useStaffStore } from "@/state/staff-store";
 import { useNotifications } from "@/state/notifications";
 import { queueService } from "@/services";
 import type { QueueEntry, QueueStatus } from "@/services";
+import { useStaffAuth } from "@/state/staff-auth";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const DEPARTMENTS = queueService.listDepartmentNames();
 
@@ -68,10 +70,38 @@ export function QueueTable({
   entries: QueueEntry[];
   onView?: (entry: QueueEntry) => void;
 }) {
-  const { setStatus, reassign, recentlyUpdated } = useStaffStore();
+  const { reassign, recentlyUpdated } = useStaffStore();
   const { notify } = useNotifications();
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [viewing, setViewing] = useState<QueueEntry | null>(null);
+  
+  const { user } = useStaffAuth();
+  const queryClient = useQueryClient();
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: QueueStatus }) => {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${user?.token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue"] });
+    },
+    onError: () => {
+      toast.error("Failed to update status on server");
+    }
+  });
+
+  const setStatus = (id: string, status: QueueStatus) => {
+    statusMutation.mutate({ id, status });
+  };
 
   const handleView = (entry: QueueEntry) => {
     if (onView) onView(entry);

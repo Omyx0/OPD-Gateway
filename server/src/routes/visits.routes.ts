@@ -22,7 +22,7 @@ const createVisitSchema = z.object({
 router.post(
   "/",
   authenticate,
-  authorize("STAFF", "DOCTOR", "ADMIN"),
+  authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"),
   validate({ body: createVisitSchema }),
   async (req, res, next) => {
     try {
@@ -35,12 +35,28 @@ router.post(
           department_id: departmentId,
           visit_type: visitType,
           source,
-          status: "TRIAGE_PENDING",
+          status: "WAITING",
         })
         .select("id, patient_id, department_id, status, registered_at")
         .single();
 
       if (error) throw error;
+
+      // DEMO: Automatically create a Queue Ticket
+      const { count } = await supabaseAdmin
+        .from("queue_tickets")
+        .select("*", { count: "exact", head: true })
+        .eq("department_id", departmentId);
+
+      const token = `A-${String((count ?? 0) + 101)}`;
+
+      await supabaseAdmin.from("queue_tickets").insert({
+        visit_id: data.id,
+        department_id: departmentId,
+        token,
+        priority: "GREEN",
+        status: "WAITING",
+      });
 
       sendSuccess(res, data, 201);
     } catch (err) {

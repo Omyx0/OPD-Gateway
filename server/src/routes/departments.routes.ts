@@ -18,7 +18,7 @@ const createDepartmentSchema = z.object({
 /**
  * GET /departments — List all departments
  */
-router.get("/", authenticate, authorize("STAFF", "DOCTOR", "ADMIN"), async (_req, res, next) => {
+router.get("/", authenticate, authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"), async (_req, res, next) => {
   try {
     const { data, error } = await supabaseAdmin
       .from("departments")

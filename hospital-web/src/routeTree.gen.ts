@@ -28,6 +28,7 @@ import { Route as StaffPatientsRouteImport } from "./routes/staff.patients"
 import { Route as StaffQueueRouteImport } from "./routes/staff.queue"
 import { Route as StaffPatientsIndexRouteImport } from "./routes/staff.patients.index"
 import { Route as StaffPatientsPatientIdRouteImport } from "./routes/staff.patients.$patientId"
+import { Route as StaffPatientsNewRouteImport } from "./routes/staff.patients.new"
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
@@ -124,6 +125,11 @@ const StaffPatientsPatientIdRoute = StaffPatientsPatientIdRouteImport.update({
   path: "/$patientId",
   getParentRoute: () => StaffPatientsRoute,
 } as any)
+const StaffPatientsNewRoute = StaffPatientsNewRouteImport.update({
+  id: "/new",
+  path: "/new",
+  getParentRoute: () => StaffPatientsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   "/staff/queue": typeof StaffQueueRoute
   "/staff/": typeof StaffIndexRoute
   "/staff/patients/$patientId": typeof StaffPatientsPatientIdRoute
+  "/staff/patients/new": typeof StaffPatientsNewRoute
   "/staff/patients/": typeof StaffPatientsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   "/staff/queue": typeof StaffQueueRoute
   "/staff": typeof StaffIndexRoute
   "/staff/patients/$patientId": typeof StaffPatientsPatientIdRoute
+  "/staff/patients/new": typeof StaffPatientsNewRoute
   "/staff/patients": typeof StaffPatientsIndexRoute
 }
 export interface FileRoutesById {
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   "/staff/queue": typeof StaffQueueRoute
   "/staff/": typeof StaffIndexRoute
   "/staff/patients/$patientId": typeof StaffPatientsPatientIdRoute
+  "/staff/patients/new": typeof StaffPatientsNewRoute
   "/staff/patients/": typeof StaffPatientsIndexRoute
 }
 export interface FileRouteTypes {
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | "/staff/queue"
     | "/staff/"
     | "/staff/patients/$patientId"
+    | "/staff/patients/new"
     | "/staff/patients/"
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | "/staff/queue"
     | "/staff"
     | "/staff/patients/$patientId"
+    | "/staff/patients/new"
     | "/staff/patients"
   id:
     | "__root__"
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | "/staff/queue"
     | "/staff/"
     | "/staff/patients/$patientId"
+    | "/staff/patients/new"
     | "/staff/patients/"
   fileRoutesById: FileRoutesById
 }
@@ -400,16 +412,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof StaffPatientsPatientIdRouteImport
       parentRoute: typeof StaffPatientsRoute
     }
+    "/staff/patients/new": {
+      id: "/staff/patients/new"
+      path: "/new"
+      fullPath: "/staff/patients/new"
+      preLoaderRoute: typeof StaffPatientsNewRouteImport
+      parentRoute: typeof StaffPatientsRoute
+    }
   }
 }
 
 interface StaffPatientsRouteChildren {
   StaffPatientsPatientIdRoute: typeof StaffPatientsPatientIdRoute
+  StaffPatientsNewRoute: typeof StaffPatientsNewRoute
   StaffPatientsIndexRoute: typeof StaffPatientsIndexRoute
 }
 
 const StaffPatientsRouteChildren: StaffPatientsRouteChildren = {
   StaffPatientsPatientIdRoute: StaffPatientsPatientIdRoute,
+  StaffPatientsNewRoute: StaffPatientsNewRoute,
   StaffPatientsIndexRoute: StaffPatientsIndexRoute,
 }
 

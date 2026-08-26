@@ -24,15 +24,14 @@ export function authorize(...allowedRoles: string[]) {
         .from("user_roles")
         .select("role")
         .eq("user_id", req.user.id)
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (error || !data) {
+      if (error || !data || data.length === 0) {
         logger.warn("Role lookup failed", { userId: req.user.id, error: error?.message });
         throw new ForbiddenError("No role assigned to this account.");
       }
 
-      const userRole = data.role as string;
+      const userRole = data[0].role as string;
 
       if (!allowedRoles.includes(userRole)) {
         logger.warn("Authorization denied", {

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Patient Registration - OPD Flow</title>
+<!-- Google Fonts & Material Symbols -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Custom Input Styling based on Design System */
+        .minimal-input {
+            background-color: transparent;
+            border: none;
+            border-bottom: 1px solid var(--tw-colors-outline-variant);
+            border-radius: 0;
+            padding: 8px 0;
+            transition: all 0.2s ease;
+        }
+        .minimal-input:focus {
+            outline: none;
+            border-bottom-color: transparent;
+            border: 1px solid var(--tw-colors-secondary);
+            border-radius: var(--tw-border-radius-DEFAULT);
+            padding: 8px 12px;
+            box-shadow: none;
+        }
+        .minimal-select {
+            background-color: transparent;
+            border: none;
+            border-bottom: 1px solid var(--tw-colors-outline-variant);
+            border-radius: 0;
+            padding: 8px 0;
+            appearance: none;
+            transition: all 0.2s ease;
+        }
+        .minimal-select:focus {
+            outline: none;
+            border-bottom-color: transparent;
+            border: 1px solid var(--tw-colors-secondary);
+            border-radius: var(--tw-border-radius-DEFAULT);
+            padding: 8px 12px;
+        }
+    </style>
+<!-- Tailwind Configuration -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "on-error": "#ffffff",
+                "secondary-fixed-dim": "#b8c4ff",
+                "surface-container": "#f0edef",
+                "surface-container-low": "#f6f3f5",
+                "tertiary-fixed-dim": "#adc6ff",
+                "on-secondary": "#ffffff",
+                "on-tertiary-fixed": "#001a42",
+                "on-primary-fixed-variant": "#3f465c",
+                "on-secondary-fixed": "#001453",
+                "tertiary-fixed": "#d8e2ff",
+                "background": "#fcf8fa",
+                "on-primary-fixed": "#131b2e",
+                "surface-container-highest": "#e4e2e4",
+                "secondary-container": "#708cfd",
+                "tertiary": "#000000",
+                "surface-tint": "#565e74",
+                "on-secondary-fixed-variant": "#173bab",
+                "on-primary": "#ffffff",
+                "on-surface": "#1b1b1d",
+                "surface-container-high": "#eae7e9",
+                "primary-fixed": "#dae2fd",
+                "on-primary-container": "#7c839b",
+                "inverse-on-surface": "#f3f0f2",
+                "outline-variant": "#c6c6cd",
+                "error": "#ba1a1a",
+                "on-tertiary": "#ffffff",
+                "on-tertiary-container": "#3980f4",
+                "on-tertiary-fixed-variant": "#004395",
+                "secondary-fixed": "#dde1ff",
+                "outline": "#76777d",
+                "surface-variant": "#e4e2e4",
+                "surface-container-lowest": "#ffffff",
+                "primary": "#000000",
+                "secondary": "#3755c3",
+                "primary-fixed-dim": "#bec6e0",
+                "inverse-primary": "#bec6e0",
+                "surface-bright": "#fcf8fa",
+                "tertiary-container": "#001a42",
+                "surface-dim": "#dcd9db",
+                "on-secondary-container": "#00217a",
+                "on-surface-variant": "#45464d",
+                "on-error-container": "#93000a",
+                "primary-container": "#131b2e",
+                "surface": "#fcf8fa",
+                "on-background": "#1b1b1d",
+                "inverse-surface": "#303032",
+                "error-container": "#ffdad6"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "bento-radius": "24px",
+                "container-padding-desktop": "40px",
+                "card-gap": "24px",
+                "container-padding-mobile": "16px",
+                "unit": "4px"
+        },
+        "fontFamily": {
+                "label-caps": [
+                        "Geist"
+                ],
+                "headline-lg": [
+                        "Geist"
+                ],
+                "headline-md": [
+                        "Geist"
+                ],
+                "body-lg": [
+                        "Inter"
+                ],
+                "display-hero": [
+                        "Geist"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "data-mono": [
+                        "Geist"
+                ],
+                "headline-lg-mobile": [
+                        "Geist"
+                ]
+        },
+        "fontSize": {
+                "label-caps": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "display-hero": [
+                        "48px",
+                        {
+                                "lineHeight": "56px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "data-mono": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex font-body-md antialiased selection:bg-secondary-fixed selection:text-on-secondary-fixed">
+<!-- Ambient Background Blur (Level 0 Depth) -->
+<div class="fixed inset-0 pointer-events-none z-[-1] overflow-hidden">
+<div class="absolute -top-[20%] -right-[10%] w-[50vw] h-[50vw] rounded-full bg-secondary-fixed-dim/20 blur-[120px]"></div>
+<div class="absolute top-[60%] -left-[10%] w-[40vw] h-[40vw] rounded-full bg-primary-fixed-dim/10 blur-[100px]"></div>
+</div>
+<!-- NavigationDrawer (Desktop Shell) -->
+<aside class="bg-primary-container dark:bg-tertiary-container fixed left-0 top-0 h-full w-[280px] z-40 hidden md:block border-r border-outline-variant/10">
+<div class="p-6 h-full flex flex-col">
+<!-- Brand -->
+<div class="mb-8 px-4">
+<span class="font-headline-md text-headline-md text-primary-fixed">OPD Flow</span>
+</div>
+<!-- User Profile Header -->
+<div class="flex items-center gap-4 mb-8 px-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden shrink-0">
+<img alt="Clinician Profile" class="w-full h-full object-cover" data-alt="A professional headshot of Dr. Sarah Chen, an Asian female clinician with dark hair pulled back, wearing a white coat over scrubs, smiling warmly in a softly lit, modern hospital corridor with a bright, light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFodH1TYZb1lh9NdJ0XOObRJmgIpZ_7U8SMn6-KuEy-KLGrPZib4hBF-rF56rYEToRmiAUf9ASm2iuHK1VD4OYEukt7GIYL7G7qN5RxY00RMQSFwrfl83UlbKUqVSdaePuO8lVzb1XcU186RISpQjPJfVaJG4uyT7O1ZBEzW4xrev_1cf7al_iRRtsSoUkF-vt9T-G-0Ut679d8qftvDYSt-PCN_asEPt4BbRMSeTtD9CvV-O34LA4AA"/>
+</div>
+<div>
+<h3 class="font-body-md text-body-md font-semibold text-on-primary-fixed">Dr. Sarah Chen</h3>
+<p class="font-label-caps text-label-caps text-on-primary-container">Chief Resident</p>
+</div>
+</div>
+<!-- Nav Items -->
+<nav class="flex flex-col gap-unit flex-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary-container dark:text-on-tertiary-fixed-variant hover:bg-white/5 hover:bg-white/10 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary-container dark:text-on-tertiary-fixed-variant hover:bg-white/5 hover:bg-white/10 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-body-md text-body-md">Queue</span>
+</a>
+<!-- Active Item -->
+<a class="flex items-center gap-3 px-4 py-3 bg-secondary text-on-secondary rounded-lg font-bold duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined fill" data-icon="personal_injury">personal_injury</span>
+<span class="font-body-md text-body-md">Patients</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary-container dark:text-on-tertiary-fixed-variant hover:bg-white/5 hover:bg-white/10 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="event">event</span>
+<span class="font-body-md text-body-md">Appointments</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary-container dark:text-on-tertiary-fixed-variant hover:bg-white/5 hover:bg-white/10 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="warning">warning</span>
+<span class="font-body-md text-body-md">Alerts</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary-container dark:text-on-tertiary-fixed-variant hover:bg-white/5 hover:bg-white/10 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="domain">domain</span>
+<span class="font-body-md text-body-md">Departments</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary-container dark:text-on-tertiary-fixed-variant hover:bg-white/5 hover:bg-white/10 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+<div class="mt-auto">
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary-container dark:text-on-tertiary-fixed-variant hover:bg-white/5 hover:bg-white/10 transition-all duration-200 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+</div>
+</nav>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="bg-surface/80 dark:bg-surface-container/80 backdrop-blur-xl fixed top-0 w-full z-30 border-b border-outline-variant/30 flex justify-between items-center px-container-padding-desktop h-16 md:pl-[320px]">
+<div class="flex items-center gap-4">
+<h1 class="font-headline-md text-headline-md text-primary dark:text-on-surface">Registration</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant dark:text-outline hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors rounded-full scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 md:ml-[280px] mt-16 p-container-padding-desktop">
+<!-- Progress Indicator -->
+<div class="mb-8 max-w-5xl mx-auto">
+<div class="flex justify-between items-end mb-2">
+<div>
+<p class="font-label-caps text-label-caps text-teal-600 uppercase tracking-wider">Step 1 of 3</p>
+<h2 class="font-headline-lg text-headline-lg mt-1">Patient Details</h2>
+</div>
+<span class="font-data-mono text-data-mono text-on-surface-variant">33%</span>
+</div>
+<div class="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-teal-500 w-1/3 rounded-full"></div>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-card-gap max-w-5xl mx-auto">
+<!-- Left Column: Instructions & Scan (Col Span 5) -->
+<div class="md:col-span-5 flex flex-col gap-card-gap">
+<div class="bg-white/40 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] rounded-bento-radius p-[24px] hover:-translate-y-1 transition-transform duration-300">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">verified_user</span>
+                        IDENTITY VERIFICATION
+                    </h3>
+<p class="font-body-md text-body-md text-on-surface mb-6">
+                        For faster registration and accuracy, please scan the patient's state-issued ID or insurance card. Data will be extracted automatically.
+                    </p>
+<!-- Scan Dropzone -->
+<div class="border-2 border-dashed border-outline-variant/60 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-white/50 hover:border-teal-500 transition-colors group">
+<div class="w-16 h-16 rounded-full bg-teal-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[32px] text-teal-600">document_scanner</span>
+</div>
+<span class="font-body-md text-body-md font-medium text-on-surface">Click to upload or scan</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant mt-2 text-[12px]">Supports JPG, PNG, PDF</span>
+</div>
+<div class="mt-6 pt-6 border-t border-outline-variant/20">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-teal-600 text-[20px] mt-0.5">info</span>
+<p class="font-body-md text-body-md text-[14px] text-on-surface-variant">
+                                If scanning fails, please proceed with manual entry in the adjacent form.
+                            </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Manual Entry Form (Col Span 7) -->
+<div class="md:col-span-7 bg-white/40 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] rounded-bento-radius p-[24px]">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-8 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">edit_document</span>
+                    MANUAL ENTRY
+                </h3>
+<form class="max-w-[500px] flex flex-col gap-8">
+<!-- Full Name -->
+<div class="relative">
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-1" for="fullName">Legal Full Name</label>
+<input class="minimal-input w-full font-body-lg text-body-lg text-on-surface" id="fullName" placeholder="e.g., Jane Doe" required="" type="text"/>
+</div>
+<!-- DOB and Sex Grid -->
+<div class="grid grid-cols-2 gap-6">
+<div class="relative">
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-1" for="dob">Date of Birth</label>
+<input class="minimal-input w-full font-body-lg text-body-lg text-on-surface" id="dob" required="" type="date"/>
+</div>
+<div class="relative">
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-1" for="sex">Biological Sex</label>
+<div class="relative">
+<select class="minimal-select w-full font-body-lg text-body-lg text-on-surface pr-8" id="sex" required="">
+<option disabled="" selected="" value="">Select</option>
+<option value="f">Female</option>
+<option value="m">Male</option>
+<option value="o">Other</option>
+</select>
+<span class="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">arrow_drop_down</span>
+</div>
+</div>
+</div>
+<!-- Contact -->
+<div class="relative">
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-1" for="phone">Primary Phone</label>
+<div class="flex items-center gap-2">
+<span class="text-on-surface-variant font-body-lg">+1</span>
+<input class="minimal-input w-full font-body-lg text-body-lg text-on-surface" id="phone" placeholder="(555) 000-0000" required="" type="tel"/>
+</div>
+</div>
+<!-- Actions -->
+<div class="mt-8 flex items-center justify-end gap-4 pt-6 border-t border-outline-variant/20">
+<button class="px-6 py-3 font-body-md text-body-md font-medium text-on-surface-variant hover:bg-white/60 rounded-full transition-colors" type="button">
+                            Cancel
+                        </button>
+<button class="px-8 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-full font-body-md text-body-md font-medium shadow-[0_4px_14px_0_rgba(20,184,166,0.39)] hover:shadow-[0_6px_20px_rgba(20,184,166,0.23)] hover:-translate-y-0.5 transition-all flex items-center gap-2" type="submit">
+                            Next Step
+                            <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</form>
+</div>
+</div>
+</main>
+</body></html>

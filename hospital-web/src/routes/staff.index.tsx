@@ -27,12 +27,59 @@ export const Route = createFileRoute("/staff/")({
   component: StaffDashboard,
 });
 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useStaffAuth } from "@/state/staff-auth";
+
 function StaffDashboard() {
-  const { queue, callNext } = useStaffStore();
-  const active = queue.filter((e) => e.status !== "COMPLETED" && e.status !== "SKIPPED");
-  const count = (p: string) => active.filter((e) => e.priority === p).length;
-  const waits = active.map((e) => e.waitMinutes);
-  const avg = waits.length ? Math.round(waits.reduce((a, b) => a + b, 0) / waits.length) : 0;
+  const { user } = useStaffAuth();
+  const queryClient = useQueryClient();
+
+  const { data: queueData = [], isLoading } = useQuery({
+    queryKey: ["queue"],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue`, {
+        headers: { Authorization: `Bearer ${user?.token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch queue");
+      const { data } = await res.json();
+      return data.map((d: any) => {
+        const dob = d.visits?.patients?.date_of_birth;
+        const age = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000) : null;
+        return {
+          id: d.id,
+          token: d.token,
+          priority: d.priority,
+          status: d.status,
+          waitMinutes: Math.round((Date.now() - new Date(d.arrival_time).getTime()) / 60000),
+          arrivalTime: new Date(d.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          department: d.departments?.name ?? 'General',
+          patient: {
+            name: d.visits?.patients?.full_name ?? 'Unknown',
+            age: age ?? '-',
+            gender: d.visits?.patients?.gender ?? '-',
+          }
+        };
+      });
+    },
+    refetchInterval: 5000
+  });
+
+  const callMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue/${id}/call`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${user?.token}` }
+      });
+      if (!res.ok) throw new Error("Failed to call");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["queue"] })
+  });
+
+  const active = queueData.filter((e: any) => e.status !== "COMPLETED" && e.status !== "SKIPPED");
+  const count = (p: string) => active.filter((e: any) => e.priority === p).length;
+  const waits = active.map((e: any) => e.waitMinutes);
+  const avg = waits.length ? Math.round(waits.reduce((a: any, b: any) => a + b, 0) / waits.length) : 0;
   const longest = waits.length ? Math.max(...waits) : 0;
   const { phase, setPhase, reload } = useMockLoad();
 
@@ -41,21 +88,22 @@ function StaffDashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Operations dashboard</h1>
-          <p className="text-sm text-muted-foreground">Live OPD queue overview (mock data)</p>
+          <p className="text-sm text-muted-foreground">Live OPD queue overview (Real Backend)</p>
         </div>
         <Button
           onClick={() => {
-            const next = callNext();
+            const next = active.find((e: any) => e.status === "WAITING");
             if (!next) {
               toast("No one is waiting", { description: "The queue has no waiting patients." });
               return;
             }
-            toast.success(`Called ${next.token}`, {
-              description: `${next.patient.name} · ${next.department}`,
+            callMutation.mutate(next.id, {
+              onSuccess: () => toast.success(`Called ${next.token}`)
             });
           }}
+          disabled={callMutation.isPending}
         >
-          Call next patient
+          {callMutation.isPending ? "Calling..." : "Call next patient"}
         </Button>
       </div>
 

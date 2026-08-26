@@ -65,7 +65,7 @@ router.get("/", authenticate, authorize("STAFF", "DOCTOR", "ADMIN"), async (req,
   try {
     let query = supabaseAdmin
       .from("queue_tickets")
-      .select("*, visits(patients(full_name, patient_code)), departments(name)");
+      .select("*, visits(patients(full_name, patient_code, date_of_birth, gender)), departments(name)");
 
     if (req.query.departmentId) {
       query = query.eq("department_id", req.query.departmentId as string);
@@ -86,6 +86,55 @@ router.get("/", authenticate, authorize("STAFF", "DOCTOR", "ADMIN"), async (req,
     );
 
     sendSuccess(res, sorted);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /queue/my-status — Patient-facing: get my active queue tickets
+ * Finds tickets associated with visits belonging to the authenticated user's patient record.
+ * IMPORTANT: This must be defined BEFORE /:id to avoid Express matching 'my-status' as an :id.
+ */
+router.get("/my-status", authenticate, async (req, res, next) => {
+  try {
+    // Find visits linked to this user via patients table
+    const { data: patientData } = await supabaseAdmin
+      .from("patients")
+      .select("id")
+      .eq("id", req.user!.id)
+      .single();
+
+    if (!patientData) {
+      sendSuccess(res, []);
+      return;
+    }
+
+    // Get active visits
+    const { data: visits } = await supabaseAdmin
+      .from("visits")
+      .select("id")
+      .eq("patient_id", patientData.id)
+      .neq("status", "COMPLETED");
+
+    if (!visits || visits.length === 0) {
+      sendSuccess(res, []);
+      return;
+    }
+
+    const visitIds = visits.map(v => v.id);
+    
+    const { data: tickets, error } = await supabaseAdmin
+      .from("queue_tickets")
+      .select("*, departments(name)")
+      .in("visit_id", visitIds)
+      .neq("status", "COMPLETED")
+      .neq("status", "SKIPPED")
+      .order("arrival_time", { ascending: false });
+
+    if (error) throw error;
+
+    sendSuccess(res, tickets ?? []);
   } catch (err) {
     next(err);
   }

@@ -34,19 +34,22 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!email.trim() || !password.trim()) {
       setError("Enter both your staff email and password.");
       return;
     }
-    setLoading(true);
-    window.setTimeout(() => {
-      setLoading(false);
-      signIn(email.trim());
+    try {
+      setLoading(true);
+      await signIn(email.trim(), password.trim());
       navigate({ to: "/staff" });
-    }, 900);
+    } catch (err: any) {
+      setError(err.message || "Invalid login credentials.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function useDemoCredentials(roleEmail: string) {
