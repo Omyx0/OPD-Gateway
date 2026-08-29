@@ -10,6 +10,9 @@
 For the full detailed project report, architecture breakdown, and testing verification guide, please see:
 👉 **[PROJECT_REPORT.md](./PROJECT_REPORT.md)**
 
+For cloud hosting and production rollout instructions, please see:
+👉 **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)**
+
 All planning and design documents have been organized in the **[`docs/`](./docs/)** directory.
 
 ---
