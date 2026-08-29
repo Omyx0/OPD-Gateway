@@ -1,0 +1,29 @@
+services:
+  # Backend Node.js / Express REST API
+  - type: web
+    name: smart-opd-gateway-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: CLIENT_URL
+        value: http://localhost:5173
+      - key: SUPABASE_URL
+        value: https://sjsghxacjgrxiboeygek.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqc2doeGFjamdyeGlib2V5Z2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1OTUzMzgsImV4cCI6MjEwMjE3MTMzOH0.N90Fq2rss34ZvOFC55k_I3DeoU5zr4BQUaWG3rSYuJI
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_TRIAGE_MODEL
+        value: gemini-2.5-flash
