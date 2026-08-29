@@ -29,6 +29,57 @@ const searchQuerySchema = z.object({
 // ── Routes ──────────────────────────────────────────────────────────
 
 /**
+ * GET /patients/me
+ * Resolve the patient record belonging to the authenticated account.
+ */
+router.get("/me", authenticate, async (req, res, next) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("patients")
+      .select("id, patient_code, full_name, date_of_birth, gender, mobile, preferred_language")
+      .eq("auth_user_id", req.user!.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new NotFoundError("Patient profile not found. Please complete registration first.");
+
+    sendSuccess(res, data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/me", authenticate, async (req, res, next) => {
+  try {
+    const fullName = typeof req.body?.fullName === "string" && req.body.fullName.trim()
+      ? req.body.fullName.trim()
+      : (req.user!.email.split("@")[0] || "Patient");
+    const { data: existing } = await supabaseAdmin
+      .from("patients")
+      .select("id")
+      .eq("auth_user_id", req.user!.id)
+      .maybeSingle();
+
+    if (existing) {
+      sendSuccess(res, existing);
+      return;
+    }
+
+    const { count } = await supabaseAdmin.from("patients").select("id", { count: "exact", head: true });
+    const { data, error } = await supabaseAdmin
+      .from("patients")
+      .insert({ auth_user_id: req.user!.id, patient_code: `P-${String((count ?? 0) + 10001)}`, full_name: fullName })
+      .select("id, patient_code, full_name")
+      .single();
+
+    if (error) throw error;
+    sendSuccess(res, data, 201);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * POST /patients
  * Create a new patient record.
  */
@@ -82,7 +133,7 @@ router.get(
   validate({ query: searchQuerySchema }),
   async (req, res, next) => {
     try {
-      const { search, page, limit } = req.query as z.infer<typeof searchQuerySchema>;
+      const { search, page, limit } = req.query as unknown as z.infer<typeof searchQuerySchema>;
       const offset = (page - 1) * limit;
 
       let query = supabaseAdmin

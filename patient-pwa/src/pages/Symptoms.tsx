@@ -1,7 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Mic, Star, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, Mic, MicOff, Star, ArrowRight, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { apiRequest } from '../lib/api';
+
+const COMMON_SYMPTOMS = [
+  { label: 'High Fever', category: 'General' },
+  { label: 'Persistent Cough', category: 'Respiratory' },
+  { label: 'Chest Discomfort', category: 'Emergency' },
+  { label: 'Severe Headache', category: 'Neurological' },
+  { label: 'Shortness of Breath', category: 'Respiratory' },
+  { label: 'Abdominal Pain', category: 'Digestive' },
+  { label: 'Dizziness', category: 'General' },
+  { label: 'Nausea & Vomiting', category: 'Digestive' },
+];
 
 export default function Symptoms() {
   const navigate = useNavigate();
@@ -10,155 +22,263 @@ export default function Symptoms() {
   const [symptoms, setSymptoms] = useState('');
   const [duration, setDuration] = useState('1-3 days');
   const [severity, setSeverity] = useState(3);
+  const [isRecording, setIsRecording] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const toggleVoiceInput = () => {
+    if (!isRecording) {
+      setIsRecording(true);
+      // Simulate speech recognition transcription for demo
+      setTimeout(() => {
+        setSymptoms((prev) => 
+          prev 
+            ? `${prev}, severe pain with elevated body temperature since yesterday` 
+            : 'Severe pain with elevated body temperature since yesterday morning'
+        );
+        setIsRecording(false);
+      }, 2400);
+    } else {
+      setIsRecording(false);
+    }
+  };
+
+  const handleTogglePill = (label: string) => {
+    setSymptoms((prev) => {
+      if (!prev) return label;
+      if (prev.includes(label)) return prev;
+      return `${prev}, ${label}`;
+    });
+  };
+
   const handleSubmit = async () => {
-    if (!symptoms) return;
+    if (!symptoms.trim()) return;
     setIsSubmitting(true);
     try {
-      // Create visit
-      const deptRes = await fetch(`${import.meta.env.VITE_API_URL}/departments`, {
-        headers: { 'Authorization': `Bearer ${user?.token}` }
-      });
-      const deptData = await deptRes.json();
-      const gpDept = (deptData?.data || []).find((d: any) => d.code === 'GP') || (deptData?.data?.[0] || { id: 'fallback-uuid' });
+      if (!user?.token) throw new Error('Your session has expired. Please sign in again.');
+      
+      const [departments, patient] = await Promise.all([
+        apiRequest<any[]>('/departments', user.token),
+        apiRequest<{ id: string }>('/patients/me', user.token),
+      ]);
 
-      const visitRes = await fetch(`${import.meta.env.VITE_API_URL}/visits`, {
+      // Look for GP department first, fallback to first active
+      const gpDept = departments.find((d: any) => d.code === 'GP') || departments[0];
+      if (!gpDept) throw new Error('No departments are available right now.');
+
+      // 1. Create visit
+      const visit = await apiRequest<{ id: string }>('/visits', user.token, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token}`
-        },
         body: JSON.stringify({
-          patientId: user?.id,
+          patientId: patient.id,
           departmentId: gpDept.id,
           visitType: "OPD",
           source: "KIOSK"
         })
       });
 
-      if (!visitRes.ok) throw new Error("Failed to create visit");
-      const visitData = await visitRes.json();
-
-      // Submit symptoms
-      await fetch(`${import.meta.env.VITE_API_URL}/visits/${visitData.data.id}/symptoms`, {
+      // 2. Submit symptoms to backend
+      await apiRequest(`/visits/${visit.id}/symptoms`, user.token, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token}`
-        },
         body: JSON.stringify({
-          symptomName: symptoms.slice(0, 50), // brief name
+          symptomName: symptoms.slice(0, 60),
           patientDescription: symptoms,
           duration,
           severity: severity.toString()
         })
       });
 
-      navigate('/dashboard/triage', { state: { visitId: visitData.data.id } });
-    } catch (err) {
+      // 3. Navigate to Triage
+      navigate('/dashboard/triage', { state: { visitId: visit.id } });
+    } catch (err: any) {
       console.error(err);
-      alert("Error submitting symptoms");
+      alert(err instanceof Error ? err.message : "Error submitting symptoms");
       setIsSubmitting(false);
     }
   };
 
+  const severityLabels: Record<number, { text: string; color: string; desc: string }> = {
+    1: { text: 'Very Mild', color: 'text-emerald-600', desc: 'Minimal discomfort, does not interrupt daily tasks' },
+    2: { text: 'Mild', color: 'text-emerald-700', desc: 'Noticeable discomfort, manageable without pain relievers' },
+    3: { text: 'Moderate', color: 'text-amber-600', desc: 'Distracting discomfort, affects normal activity' },
+    4: { text: 'Severe', color: 'text-orange-600', desc: 'Intense pain or discomfort, difficult to concentrate' },
+    5: { text: 'Critical / Emergency', color: 'text-red-600', desc: 'Unbearable distress, requires immediate clinical care' },
+  };
+
   return (
-    <div className="text-slate-900 font-sans h-full overflow-y-auto flex flex-col relative pb-[100px]">
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_15%_15%,rgba(112,140,253,0.15)_0%,transparent_40%),radial-gradient(circle_at_85%_25%,rgba(57,128,244,0.1)_0%,transparent_45%),radial-gradient(circle_at_50%_80%,rgba(218,226,253,0.2)_0%,transparent_50%)] bg-slate-50"></div>
-      
-      {/* TopAppBar */}
-      <header className="fixed top-0 w-full z-50 bg-white/40 backdrop-blur-xl border-b border-white/50 flex justify-between items-center px-4 h-16 shadow-sm">
+    <div className="min-h-[100dvh] text-slate-900 flex flex-col relative pb-28">
+      {/* Top Header */}
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-white/80 px-4 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center rounded-full text-slate-800 bg-white/60 backdrop-blur-md shadow-sm border border-white/80 hover:bg-white/80 transition-colors">
-            <ArrowLeft size={20} />
+          <button 
+            onClick={() => navigate('/dashboard')} 
+            className="w-9 h-9 flex items-center justify-center rounded-full glass-panel text-slate-700 hover:bg-white shadow-sm"
+            aria-label="Back"
+          >
+            <ArrowLeft size={18} />
           </button>
-          <h1 className="text-xl font-bold text-slate-800">OPD Flow</h1>
+          <div>
+            <h1 className="text-base font-extrabold text-slate-900 tracking-tight">Symptom Intake</h1>
+            <p className="text-[10px] text-slate-500 font-medium">Check-In Step 2 of 4</p>
+          </div>
         </div>
-        <div className="text-slate-600 font-mono text-sm font-medium bg-white/50 px-3 py-1 rounded-full border border-white/60">Step 2 of 4</div>
+
+        <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2.5 py-1 rounded-full">
+          AI Triage
+        </span>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 mt-16 px-4 py-6 flex flex-col gap-6 w-full max-w-lg mx-auto">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">How are you feeling today?</h2>
-          <p className="text-slate-600">Please describe your symptoms in detail.</p>
+      <main className="flex-1 px-4 py-5 flex flex-col gap-5 max-w-md mx-auto w-full">
+        {/* Title */}
+        <div className="space-y-1">
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">How are you feeling today?</h2>
+          <p className="text-xs text-slate-600 leading-relaxed font-normal">
+            Describe what brings you to the OPD. Our clinical AI model will parse your symptoms and route you to the appropriate specialist.
+          </p>
         </div>
 
-        {/* Input Area */}
-        <div className="relative bg-white/50 backdrop-blur-xl border border-white/80 shadow-sm rounded-3xl p-5 transition-colors focus-within:border-blue-400 focus-within:bg-white/70">
+        {/* Freeform input card with voice support */}
+        <div className="glass-panel rounded-3xl p-4 shadow-sm relative transition-all focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-400">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Your Description</span>
+            {isRecording && (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-red-600 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-red-600" />
+                Listening...
+              </span>
+            )}
+          </div>
+
           <textarea 
             value={symptoms}
             onChange={(e) => setSymptoms(e.target.value)}
-            className="w-full bg-transparent border-none focus:ring-0 p-0 text-slate-900 placeholder:text-slate-400 resize-none h-32 text-lg outline-none" 
-            placeholder="E.g., I've had a severe headache and slight fever since yesterday morning..."
+            className="w-full bg-transparent border-0 p-0 text-slate-900 placeholder:text-slate-400 resize-none h-28 text-sm outline-none font-medium leading-relaxed" 
+            placeholder="E.g., I've had a severe headache and continuous high fever with chills since yesterday evening..."
           />
-          <button className="absolute bottom-4 right-4 w-14 h-14 rounded-full bg-slate-900 text-white shadow-lg flex items-center justify-center hover:bg-slate-800 transition-colors border border-white/20">
-            <Mic size={24} />
-          </button>
-        </div>
 
-        {/* Quick Select Chips */}
-        <div>
-          <h3 className="text-xs text-slate-500 font-bold mb-3 uppercase tracking-wider">Common Symptoms</h3>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
-            {['Fever', 'Cough', 'Headache', 'Nausea', 'Fatigue'].map(s => (
-              <button 
-                key={s}
-                onClick={() => setSymptoms(prev => prev ? `${prev}, ${s}` : s)}
-                className="flex-shrink-0 px-5 py-2.5 rounded-2xl bg-white/50 backdrop-blur-md border border-white/80 text-slate-800 hover:bg-white/70 transition-colors shadow-sm whitespace-nowrap"
-              >
-                {s}
-              </button>
-            ))}
+          <div className="flex justify-between items-center pt-3 border-t border-slate-200/60 mt-1">
+            <span className="text-[11px] text-slate-400">
+              {symptoms.length > 0 ? `${symptoms.length} characters` : 'Type or speak'}
+            </span>
+
+            <button
+              type="button"
+              onClick={toggleVoiceInput}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                isRecording 
+                  ? 'bg-red-600 text-white animate-pulse' 
+                  : 'bg-slate-900 text-white hover:bg-slate-800'
+              }`}
+            >
+              {isRecording ? <MicOff size={14} /> : <Mic size={14} />}
+              <span>{isRecording ? 'Stop' : 'Voice Input'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Duration & Severity Selectors */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white/50 backdrop-blur-xl border border-white/80 shadow-sm rounded-3xl p-5">
-            <h3 className="text-xs text-slate-500 font-bold mb-3 uppercase tracking-wider">Duration</h3>
-            <select 
+        {/* Quick select symptom pills */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Common Symptoms (Tap to add)</span>
+            <span className="text-[11px] text-slate-400">Quick Tags</span>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {COMMON_SYMPTOMS.map((item) => {
+              const selected = symptoms.includes(item.label);
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => handleTogglePill(item.label)}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 shadow-sm ${
+                    selected
+                      ? 'bg-blue-600 text-white shadow-blue-500/20'
+                      : 'glass-panel hover:bg-white text-slate-700'
+                  }`}
+                >
+                  {selected && <CheckCircle2 size={12} />}
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Duration & Severity Bento Grid */}
+        <div className="grid grid-cols-1 gap-3">
+          {/* Duration */}
+          <div className="glass-panel rounded-2xl p-4 space-y-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+              Symptom Duration
+            </label>
+            <select
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className="w-full bg-white/40 border border-white/60 rounded-xl py-2.5 px-3 focus:border-blue-400 focus:ring-0 text-slate-800 outline-none shadow-sm"
+              className="w-full bg-white/80 border border-slate-200 rounded-xl py-2.5 px-3 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 shadow-sm"
             >
-              <option>Less than 24 hours</option>
-              <option>1-3 days</option>
-              <option>3-7 days</option>
-              <option>More than a week</option>
+              <option value="Less than 24 hours">Less than 24 hours</option>
+              <option value="1-3 days">1 to 3 days</option>
+              <option value="4-7 days">4 to 7 days (About a week)</option>
+              <option value="1-2 weeks">1 to 2 weeks</option>
+              <option value="More than 2 weeks">More than 2 weeks (Chronic)</option>
             </select>
           </div>
 
-          <div className="bg-white/50 backdrop-blur-xl border border-white/80 shadow-sm rounded-3xl p-5 flex flex-col justify-between">
-            <h3 className="text-xs text-slate-500 font-bold mb-2 uppercase tracking-wider">Severity</h3>
-            <div className="flex items-center justify-between mt-1 cursor-pointer">
-              {[1, 2, 3, 4, 5].map(s => (
-                <Star 
-                  key={s} 
+          {/* Severity Meter */}
+          <div className="glass-panel rounded-2xl p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Discomfort Severity
+              </label>
+              <span className={`text-xs font-black uppercase ${severityLabels[severity].color}`}>
+                {severityLabels[severity].text}
+              </span>
+            </div>
+
+            {/* Stars */}
+            <div className="flex justify-between items-center bg-white/70 rounded-xl p-2.5 border border-slate-200/80">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button
+                  key={s}
+                  type="button"
                   onClick={() => setSeverity(s)}
-                  className={`w-6 h-6 ${s <= severity ? 'text-blue-500 fill-blue-500' : 'text-slate-300'}`} 
-                />
+                  className="p-1 hover:scale-125 transition-transform"
+                  aria-label={`Severity ${s}`}
+                >
+                  <Star
+                    className={`w-7 h-7 transition-colors ${
+                      s <= severity ? 'text-amber-400 fill-amber-400' : 'text-slate-200'
+                    }`}
+                  />
+                </button>
               ))}
             </div>
-            <div className="text-sm font-medium text-slate-800 mt-2 text-center bg-white/40 rounded-lg py-1 border border-white/50">
-              {severity <= 2 ? 'Mild' : severity === 3 ? 'Moderate' : 'Severe'}
-            </div>
+
+            <p className="text-[11px] text-slate-500 font-medium leading-tight">
+              {severityLabels[severity].desc}
+            </p>
           </div>
         </div>
       </main>
 
-      {/* Fixed Bottom Action */}
-      <div className="fixed bottom-0 left-0 w-full p-4 bg-white/60 backdrop-blur-xl border-t border-white/60 z-40 shadow-lg">
-        <button 
-          disabled={isSubmitting || !symptoms}
+      {/* Fixed Bottom Continue Bar */}
+      <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-white/85 backdrop-blur-xl border-t border-white/90 z-40 shadow-xl">
+        <button
+          disabled={isSubmitting || !symptoms.trim()}
           onClick={handleSubmit}
-          className="w-full max-w-lg mx-auto bg-slate-900 text-white rounded-2xl py-4 font-semibold shadow-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white rounded-2xl py-3.5 font-bold text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] transition-all"
         >
-          {isSubmitting ? <Loader2 size={24} className="animate-spin" /> : (
+          {isSubmitting ? (
             <>
-              Continue to Triage
-              <ArrowRight size={20} />
+              <Loader2 size={18} className="animate-spin" />
+              <span>Running Gemini AI Triage...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles size={16} />
+              <span>Continue to AI Triage</span>
+              <ArrowRight size={18} />
             </>
           )}
         </button>

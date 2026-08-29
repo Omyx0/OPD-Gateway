@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Map, ChevronRight, Stethoscope, Activity, FilePlus2, Loader2 } from 'lucide-react';
+import { 
+  ChevronRight, Stethoscope, Activity, FilePlus2, Loader2, Sparkles, 
+  Clock, MapPin, Phone, RefreshCw, AlertCircle, CheckCircle2 
+} from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeTicket, setActiveTicket] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchActiveTicket();
-    // Poll every 5 seconds
-    const interval = setInterval(fetchActiveTicket, 5000);
+    const interval = setInterval(fetchActiveTicket, 4000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -20,11 +23,10 @@ export default function Dashboard() {
     if (!user?.token) return;
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/queue/my-status`, {
-        headers: { 'Authorization': `Bearer ${user.token}` }
+        headers: { Authorization: `Bearer ${user.token}` },
       });
       const data = await res.json();
       if (res.ok && data.data && data.data.length > 0) {
-        // Assume first active ticket is the current one
         setActiveTicket(data.data[0]);
       } else {
         setActiveTicket(null);
@@ -33,124 +35,276 @@ export default function Dashboard() {
       console.error("Failed to fetch ticket status", err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
-  if (loading) {
-    return <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-teal-600" size={40} /></div>;
-  }
 
-  // No active visit state
-  if (!activeTicket) {
+  const handleManualRefresh = () => {
+    setRefreshing(true);
+    fetchActiveTicket();
+  };
+
+  if (loading) {
     return (
-      <div className="flex-1 px-4 py-8 flex flex-col gap-6">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Welcome, {user?.phone}</h2>
-          <p className="text-slate-500">You have no active visits today.</p>
-        </div>
-        
-        <button 
-          onClick={() => navigate('/dashboard/symptoms')}
-          className="bg-white/80 backdrop-blur-xl border border-white p-8 rounded-3xl shadow-sm flex flex-col items-center justify-center gap-4 hover:-translate-y-1 transition-transform"
-        >
-          <div className="w-16 h-16 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center shadow-inner">
-            <FilePlus2 size={32} />
-          </div>
-          <div className="text-center">
-            <h3 className="font-bold text-lg text-slate-800">Start New Visit</h3>
-            <p className="text-slate-500 text-sm">Enter symptoms to check-in</p>
-          </div>
-        </button>
+      <div className="flex flex-col justify-center items-center h-[70vh] gap-3">
+        <Loader2 className="animate-spin text-blue-600" size={36} />
+        <p className="text-xs font-semibold text-slate-500">Checking active OPD visits...</p>
       </div>
     );
   }
 
-  // Active visit state (Stitch Design: pwa_queue_status)
-  return (
-    <div className="flex-1 mt-6 pb-[120px] px-5 flex flex-col gap-6 w-full max-w-lg mx-auto">
-      {/* Hero Token Number */}
-      <section className="bg-white/60 backdrop-blur-2xl border border-white/80 rounded-3xl p-8 flex flex-col items-center justify-center relative overflow-hidden shadow-[0_10px_40px_rgba(0,26,66,0.04)]">
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-blue-400 via-transparent to-transparent pointer-events-none"></div>
-        <p className="text-xs text-slate-500 mb-3 uppercase tracking-widest relative z-10 font-bold">Your Queue Number</p>
-        <div className="text-7xl leading-none text-slate-900 font-bold relative z-10 tracking-tighter drop-shadow-sm">
-          {activeTicket.token}
-        </div>
-        <div className="mt-8 inline-flex items-center gap-2 bg-white/70 px-5 py-2.5 rounded-full border border-white shadow-sm relative z-10 backdrop-blur-md">
-          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(55,85,195,0.6)]"></span>
-          <span className="font-mono text-blue-600 font-bold tracking-wide">Status: {activeTicket.status}</span>
-        </div>
-      </section>
-
-      {/* Vertical Progress Stepper */}
-      <section className="bg-white/60 backdrop-blur-2xl border border-white/80 rounded-3xl p-7 shadow-[0_10px_40px_rgba(0,26,66,0.04)]">
-        <h2 className="text-xs text-slate-500 mb-8 uppercase tracking-widest font-bold">Journey Status</h2>
-        
-        <div className="relative pl-8 border-l-2 border-white space-y-12">
-          {/* Step 1: Completed */}
-          <div className="relative">
-            <div className="absolute -left-[41px] top-1 w-5 h-5 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-              <span className="text-blue-600 text-[12px] font-bold">✓</span>
-            </div>
-            <h3 className="text-[17px] text-slate-800 font-semibold">Registration</h3>
-            <p className="text-[14px] text-slate-500 mt-1.5">Completed</p>
+  // ----------------------------------------------------
+  // STATE 1: NO ACTIVE VISIT TODAY
+  // ----------------------------------------------------
+  if (!activeTicket) {
+    return (
+      <div className="px-4 py-5 flex flex-col gap-5">
+        {/* Welcome Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-teal-700 uppercase tracking-widest">Outpatient Portal</p>
+            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Welcome, Patient</h2>
+            <p className="text-xs text-slate-500 font-medium">Ready for your OPD appointment today?</p>
           </div>
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-500 to-teal-400 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-blue-500/20">
+            {user?.role?.charAt(0) || 'P'}
+          </div>
+        </div>
 
-          {/* Step 2: Current (Active) */}
-          <div className="relative">
-            <div className="absolute -left-[43px] top-1 w-6 h-6 rounded-full bg-blue-600 border-4 border-[#f4f7fb] shadow-[0_0_0_0_rgba(55,85,195,0.3)] animate-[pulse-active_2s_infinite]"></div>
-            <div className="bg-white/80 rounded-[20px] p-6 border border-white shadow-sm backdrop-blur-md">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-[19px] text-slate-900 font-bold">Waiting</h3>
-                <span className="bg-blue-600/15 text-blue-700 text-[11px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider">Current</span>
+        {/* Primary Action Hero Card: Start Check-In */}
+        <div 
+          onClick={() => navigate('/dashboard/symptoms')}
+          className="glass-panel-dark rounded-3xl p-6 text-white relative overflow-hidden cursor-pointer group shadow-xl hover:scale-[1.01] transition-all"
+        >
+          <div className="absolute top-0 right-0 w-36 h-36 bg-blue-500/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute bottom-0 right-10 w-28 h-28 bg-teal-400/20 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="relative z-10 flex flex-col gap-4">
+            <div className="flex justify-between items-start">
+              <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner">
+                <FilePlus2 size={24} />
               </div>
-              <p className="text-[15px] text-slate-600 leading-relaxed">
-                Please wait in the waiting area. You will be called soon.
+              <span className="bg-teal-400/20 text-teal-300 text-[10px] font-bold px-2.5 py-1 rounded-full border border-teal-400/30 flex items-center gap-1">
+                <Sparkles size={11} /> AI Powered
+              </span>
+            </div>
+
+            <div>
+              <h3 className="font-extrabold text-lg text-white tracking-tight">Start OPD Check-In</h3>
+              <p className="text-xs text-blue-100/80 leading-relaxed mt-1">
+                Enter your symptoms to receive instant Gemini AI triage assessment and generate a live queue token.
               </p>
-              
-              <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-5">
-                <div className="flex items-center gap-2.5 text-slate-600 text-[14px] font-semibold">
-                  <Activity size={20} className="text-blue-600" />
-                  Priority: {activeTicket.priority}
-                </div>
-                <button className="text-blue-600 font-bold text-[15px] flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
-                  View Map
-                  <ChevronRight size={18} />
-                </button>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between text-xs font-bold text-teal-300 border-t border-white/10">
+              <span>Begin Symptom Intake</span>
+              <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                <ChevronRight size={16} />
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Step 3: Pending */}
+        {/* Quick Hospital Status Bento */}
+        <div className="space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Live Department Status</span>
+            <span className="text-[11px] font-semibold text-blue-600">Updated now</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="glass-panel rounded-2xl p-4 flex flex-col justify-between gap-3">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Stethoscope size={16} />
+                </div>
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              </div>
+              <div>
+                <h4 className="font-bold text-xs text-slate-800">General Practice</h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">Wait: ~8 mins</p>
+              </div>
+            </div>
+
+            <div className="glass-panel rounded-2xl p-4 flex flex-col justify-between gap-3">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                  <Activity size={16} />
+                </div>
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              </div>
+              <div>
+                <h4 className="font-bold text-xs text-slate-800">Cardiology</h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">Wait: ~15 mins</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Essential OPD Guidelines */}
+        <div className="glass-panel rounded-2xl p-4 space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <Clock size={14} className="text-blue-600" />
+            Hospital Information
+          </h4>
+          <div className="space-y-2 text-xs text-slate-600">
+            <div className="flex items-start gap-2">
+              <MapPin size={14} className="text-slate-400 shrink-0 mt-0.5" />
+              <span>Outpatient Block, Floors 1-3. Main Hospital Campus.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <Phone size={14} className="text-slate-400 shrink-0 mt-0.5" />
+              <span>OPD Helpline: <strong className="text-slate-800">1800-419-0022</strong> (Emergency: 108)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // STATE 2: ACTIVE QUEUE TICKET PRESENT
+  // ----------------------------------------------------
+  const priorityColors: Record<string, { bg: string; text: string; label: string }> = {
+    RED: { bg: 'bg-red-500/20 border-red-400/40', text: 'text-red-300', label: 'Emergency Priority' },
+    YELLOW: { bg: 'bg-amber-500/20 border-amber-400/40', text: 'text-amber-300', label: 'Urgent Priority' },
+    GREEN: { bg: 'bg-emerald-500/20 border-emerald-400/40', text: 'text-emerald-300', label: 'Routine Priority' },
+  };
+
+  const pBadge = priorityColors[activeTicket.priority] || priorityColors.GREEN;
+
+  const isCalled = activeTicket.status === 'CALLED';
+  const isInProgress = activeTicket.status === 'IN_PROGRESS';
+
+  return (
+    <div className="px-4 py-5 flex flex-col gap-5">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="text-[11px] font-bold text-teal-700 uppercase tracking-widest">Active Care Journey</span>
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Your Queue Token</h2>
+        </div>
+        <button
+          onClick={handleManualRefresh}
+          className="w-9 h-9 rounded-full glass-panel flex items-center justify-center text-slate-600 hover:text-blue-600 shadow-sm"
+          title="Refresh ticket status"
+          aria-label="Refresh status"
+        >
+          <RefreshCw size={16} className={refreshing ? 'animate-spin text-blue-600' : ''} />
+        </button>
+      </div>
+
+      {/* Hero Token Card (Sapphire Glass) */}
+      <div className={`glass-panel-dark rounded-3xl p-6 text-white relative overflow-hidden shadow-2xl ${isCalled ? 'ring-4 ring-amber-400 ring-offset-2' : ''}`}>
+        {/* Glow ambient */}
+        <div className="absolute top-0 right-0 w-44 h-44 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-44 h-44 bg-teal-400/20 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col items-center text-center gap-3">
+          {/* Department Tag */}
+          <div className="inline-flex items-center gap-1.5 bg-white/10 px-3.5 py-1 rounded-full border border-white/20 text-xs font-semibold text-blue-100">
+            <Stethoscope size={13} className="text-teal-300" />
+            <span>{activeTicket.departments?.name || 'General Practice'}</span>
+          </div>
+
+          {/* Huge Token Code */}
+          <div className="text-6xl font-black tracking-tight text-white my-1 font-mono drop-shadow-md">
+            {activeTicket.token}
+          </div>
+
+          {/* Status Badge */}
+          <div className="inline-flex items-center gap-2 bg-white/15 px-4 py-1.5 rounded-full border border-white/25 backdrop-blur-md">
+            <span className={`w-2.5 h-2.5 rounded-full ${isCalled ? 'bg-amber-400 animate-ping' : isInProgress ? 'bg-emerald-400' : 'bg-blue-400 animate-pulse'}`} />
+            <span className="font-bold text-xs tracking-wider uppercase">
+              {isCalled ? '🔔 Called to Room' : isInProgress ? '👨‍⚕️ In Consultation' : '⏳ Waiting in Queue'}
+            </span>
+          </div>
+
+          {/* Priority Pill */}
+          <div className={`mt-2 text-xs font-bold px-3 py-1 rounded-full border ${pBadge.bg} ${pBadge.text}`}>
+            {pBadge.label}
+          </div>
+        </div>
+      </div>
+
+      {/* Urgent Notice if Called */}
+      {isCalled && (
+        <div className="p-4 bg-amber-500/15 border-2 border-amber-500/40 rounded-2xl flex items-start gap-3 shadow-md animate-bounce">
+          <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={20} />
+          <div>
+            <h4 className="font-extrabold text-sm text-amber-900">Your Number Has Been Called!</h4>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Please proceed immediately to the <strong>{activeTicket.departments?.name || 'Consultation Room'}</strong>.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Stepper / Timeline Card */}
+      <div className="glass-panel rounded-3xl p-5 space-y-4 shadow-sm">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Care Progress</h3>
+
+        <div className="relative pl-6 space-y-6 border-l-2 border-slate-200">
+          {/* Step 1 */}
+          <div className="relative">
+            <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-white ring-4 ring-white">
+              <CheckCircle2 size={12} />
+            </div>
+            <div className="text-xs font-bold text-slate-800">Registration & Check-In</div>
+            <div className="text-[11px] text-emerald-600 font-medium">Completed via PWA</div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="relative">
+            <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-white ring-4 ring-white">
+              <CheckCircle2 size={12} />
+            </div>
+            <div className="text-xs font-bold text-slate-800">AI Symptom Triage</div>
+            <div className="text-[11px] text-emerald-600 font-medium">Assessed ({activeTicket.priority})</div>
+          </div>
+
+          {/* Step 3: Current */}
+          <div className="relative">
+            <div className={`absolute -left-[33px] top-0 w-5 h-5 rounded-full ${isCalled || isInProgress ? 'bg-blue-600' : 'bg-blue-500'} flex items-center justify-center text-white ring-4 ring-blue-100 ${!isInProgress ? 'pulse-ring' : ''}`}>
+              <Activity size={12} />
+            </div>
+            <div className="bg-white/80 rounded-xl p-3 border border-slate-200/80 shadow-sm">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-bold text-slate-900">Waiting Area</span>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-700">Current</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-normal">
+                Please remain seated near the department waiting display. You will hear an announcement when called.
+              </p>
+            </div>
+          </div>
+
+          {/* Step 4: Pending */}
           <div className="relative opacity-50">
-            <div className="absolute -left-[41px] top-1 w-5 h-5 rounded-full bg-white/50 border border-slate-200 shadow-sm"></div>
-            <h3 className="text-[17px] text-slate-800 font-semibold">Consultation</h3>
-            <p className="text-[14px] text-slate-500 mt-1.5">Doctor Assigned</p>
+            <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-slate-300 ring-4 ring-white" />
+            <div className="text-xs font-bold text-slate-700">Doctor Consultation</div>
+            <div className="text-[11px] text-slate-400 font-medium">Upcoming</div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Department Live Status */}
-      <section className="flex flex-col gap-5 mt-4">
-        <h2 className="text-xs text-slate-500 uppercase tracking-widest font-bold pl-2">Department Status</h2>
-        <div className="flex gap-4 overflow-x-auto pb-6 snap-x -mx-5 px-5">
-          <div className="bg-white/60 backdrop-blur-2xl border border-white/80 rounded-3xl min-w-[220px] snap-center shrink-0 flex flex-col items-center text-center p-7 shadow-sm">
-            <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 mb-5 shadow-inner">
-              <Stethoscope size={28} />
-            </div>
-            <h3 className="text-[15px] font-bold mb-4 text-slate-800 uppercase tracking-widest">Cardiology</h3>
-            <div className="mt-2 flex items-center gap-2 text-[12px] font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-              NORMAL LOAD
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Patient Info */}
-      <section className="bg-white/60 backdrop-blur-2xl border border-white/80 rounded-3xl p-6 shadow-sm">
-        <p className="text-sm text-slate-500 text-center">
-          🔔 You will be notified when your number is called. Stay nearby.
-        </p>
-      </section>
+      {/* Action shortcuts */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => navigate('/dashboard/queue')}
+          className="glass-panel hover:bg-white p-3.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-blue-700 border border-blue-100 shadow-sm transition-all"
+        >
+          <Clock size={16} />
+          <span>Full Queue View</span>
+        </button>
+        <button
+          onClick={() => navigate('/dashboard/records')}
+          className="glass-panel hover:bg-white p-3.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-slate-700 shadow-sm transition-all"
+        >
+          <Activity size={16} />
+          <span>View Records</span>
+        </button>
+      </div>
     </div>
   );
 }

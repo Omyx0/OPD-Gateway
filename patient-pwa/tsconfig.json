@@ -9,7 +9,6 @@
     "jsx": "react-jsx",
 
     /* Bundler mode */
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },

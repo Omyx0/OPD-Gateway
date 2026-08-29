@@ -66,17 +66,112 @@ router.post(
 );
 
 /**
+ * POST /visits/:id/symptoms — Submit symptoms for a visit
+ */
+router.post(
+  "/:id/symptoms",
+  authenticate,
+  authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"),
+  validate({
+    body: z.object({
+      symptomName: z.string().min(1, "Symptom name is required."),
+      patientDescription: z.string().optional(),
+      duration: z.string().optional(),
+      severity: z.string().optional(),
+    }),
+  }),
+  async (req, res, next) => {
+    try {
+      // Verify the visit exists
+      const { data: visit, error: visitError } = await supabaseAdmin
+        .from("visits")
+        .select("id")
+        .eq("id", req.params.id)
+        .single();
+
+      if (visitError || !visit) throw new NotFoundError("Visit not found.");
+
+      const { symptomName, patientDescription, duration, severity } = req.body;
+
+      const { data, error } = await supabaseAdmin
+        .from("symptoms")
+        .insert({
+          visit_id: req.params.id,
+          symptom_name: symptomName,
+          patient_description: patientDescription,
+          duration,
+          severity,
+        })
+        .select("id, symptom_name, patient_description, duration, severity, created_at")
+        .single();
+
+      if (error) throw error;
+
+      // Transform snake_case → camelCase for frontend
+      sendSuccess(res, {
+        id: data.id,
+        symptomName: data.symptom_name,
+        patientDescription: data.patient_description,
+        duration: data.duration,
+        severity: data.severity,
+        createdAt: data.created_at,
+      }, 201);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * GET /visits/:id/symptoms — Get symptoms for a visit
+ */
+router.get(
+  "/:id/symptoms",
+  authenticate,
+  authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"),
+  async (req, res, next) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("symptoms")
+        .select("id, symptom_name, patient_description, duration, severity, created_at")
+        .eq("visit_id", req.params.id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      // Transform snake_case → camelCase for frontend
+      const result = (data ?? []).map((s) => ({
+        id: s.id,
+        symptomName: s.symptom_name,
+        patientDescription: s.patient_description,
+        duration: s.duration,
+        severity: s.severity,
+        createdAt: s.created_at,
+      }));
+
+      sendSuccess(res, result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
  * GET /visits/:id — Get a single visit
  */
-router.get("/:id", authenticate, authorize("STAFF", "DOCTOR", "ADMIN"), async (req, res, next) => {
+router.get("/:id", authenticate, authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"), async (req, res, next) => {
   try {
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("visits")
-      .select("*, patients(full_name, patient_code), departments(name)")
-      .eq("id", req.params.id)
-      .single();
+      .select("*, patients(full_name, patient_code, auth_user_id), departments(name)")
+      .eq("id", req.params.id);
+
+    const { data, error } = await query.single();
 
     if (error || !data) throw new NotFoundError("Visit not found.");
+    if (req.user!.role === "PATIENT" && data.patients?.auth_user_id !== req.user!.id) {
+      throw new NotFoundError("Visit not found.");
+    }
 
     sendSuccess(res, data);
   } catch (err) {

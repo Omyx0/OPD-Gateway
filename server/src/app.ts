@@ -34,7 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan(env.NODE_ENV === "development" ? "dev" : "combined"));
 
 // ── Rate Limiting ───────────────────────────────────────────────────
-app.use(rateLimit());
+app.use(rateLimit(15 * 60 * 1000, 10000));
 
 // ── Health Check ────────────────────────────────────────────────────
 app.get("/health", (_req, res) => {

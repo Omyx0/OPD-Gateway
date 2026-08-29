@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
-import type { Session } from '@supabase/supabase-js';
+import { apiRequest } from '../lib/api';
 
 interface User {
   id: string;
@@ -20,6 +20,17 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+async function provisionPatient(token: string, email: string) {
+  try {
+    await apiRequest('/patients/me', token, {
+      method: 'POST',
+      body: JSON.stringify({ fullName: email.split('@')[0] }),
+    });
+  } catch (error) {
+    console.warn('Patient profile could not be provisioned yet', error);
+  }
+}
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -66,7 +77,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
 
-    if (data.session) {
+    if (data.session && data.user) {
+      await provisionPatient(data.session.access_token, data.user.email ?? '');
       setUser({
         id: data.user.id,
         phone: '9999999999', // Placeholder
@@ -88,7 +100,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
     
-    if (data.session) {
+    if (data.session && data.user) {
+      await provisionPatient(data.session.access_token, data.user.email ?? email);
       setUser({
         id: data.user.id,
         phone: '9999999999', // Placeholder

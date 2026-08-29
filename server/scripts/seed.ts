@@ -28,57 +28,78 @@ const DEMO_USERS = [
   },
 ];
 
+const DEPARTMENTS = [
+  { name: "General Practice", code: "GP" },
+  { name: "Cardiology", code: "CARDIO" },
+  { name: "ENT", code: "ENT" },
+  { name: "Orthopaedics", code: "ORTHO" },
+  { name: "Ophthalmology", code: "OPHTHAL" },
+  { name: "Dermatology", code: "DERM" },
+  { name: "Paediatrics", code: "PAED" },
+];
+
 async function seed() {
   logger.info("Starting database seed...");
 
-  // 1. Seed Hospital and Department
+  // 1. Seed Hospital
   let hospitalId: string;
-  let deptId: string;
 
-  const { data: hospital, error: hError } = await supabaseAdmin
+  const { data: existingHospitals } = await supabaseAdmin
     .from("hospitals")
-    .upsert({ name: "General Hospital Demo" }, { onConflict: "id" })
     .select("id")
-    .limit(1)
-    .single();
+    .limit(1);
 
-  if (hError && hError.code !== 'PGRST116') {
-    // If table has no unique constraint on name, upsert might be tricky, let's just insert if empty
-    const { data: existingHospitals } = await supabaseAdmin.from("hospitals").select("id").limit(1);
-    if (!existingHospitals || existingHospitals.length === 0) {
-      const { data: newH } = await supabaseAdmin.from("hospitals").insert({ name: "General Hospital Demo" }).select("id").single();
-      hospitalId = newH!.id;
-    } else {
-      hospitalId = existingHospitals[0].id;
+  if (!existingHospitals || existingHospitals.length === 0) {
+    const { data: newH, error: hErr } = await supabaseAdmin
+      .from("hospitals")
+      .insert({ name: "General Hospital Demo" })
+      .select("id")
+      .single();
+    if (hErr) {
+      logger.error("Failed to create hospital:", hErr.message);
+      process.exit(1);
     }
+    hospitalId = newH!.id;
+    logger.info(`Created Hospital (${hospitalId})`);
   } else {
-    hospitalId = hospital?.id ?? (await supabaseAdmin.from("hospitals").select("id").limit(1).single()).data!.id;
+    hospitalId = existingHospitals[0].id;
+    logger.info(`Using existing Hospital (${hospitalId})`);
   }
 
-  const { data: existingDepts } = await supabaseAdmin.from("departments").select("id").eq("code", "CARDIO").limit(1);
-  if (!existingDepts || existingDepts.length === 0) {
-    const { data: newD } = await supabaseAdmin.from("departments").insert({
-      hospital_id: hospitalId,
-      name: "Cardiology",
-      code: "CARDIO"
-    }).select("id").single();
-    deptId = newD!.id;
-  } else {
-    deptId = existingDepts[0].id;
+  // 2. Seed Departments
+  for (const dept of DEPARTMENTS) {
+    const { data: existing } = await supabaseAdmin
+      .from("departments")
+      .select("id")
+      .eq("code", dept.code)
+      .limit(1);
+
+    if (!existing || existing.length === 0) {
+      const { error: dErr } = await supabaseAdmin.from("departments").insert({
+        hospital_id: hospitalId,
+        name: dept.name,
+        code: dept.code,
+      });
+      if (dErr) {
+        logger.warn(`Failed to create department ${dept.code}: ${dErr.message}`);
+      } else {
+        logger.info(`Created department: ${dept.name} (${dept.code})`);
+      }
+    } else {
+      logger.info(`Department ${dept.name} (${dept.code}) already exists`);
+    }
   }
 
-  logger.info(`Seeded Hospital (${hospitalId}) and Department (${deptId})`);
-
-
-  // 2. Seed Users
+  // 3. Seed Users
   for (const user of DEMO_USERS) {
     logger.info(`Processing user: ${user.email} (${user.role})`);
 
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: user.email,
-      password: user.password,
-      email_confirm: true,
-    });
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: user.email,
+        password: user.password,
+        email_confirm: true,
+      });
 
     let userId: string;
 
@@ -89,17 +110,25 @@ async function seed() {
           .select("id")
           .eq("email", user.email)
           .single();
-        
-        if (!existingUser) continue;
+
+        if (!existingUser) {
+          logger.warn(`User ${user.email} registered but no profile found, skipping.`);
+          continue;
+        }
         userId = existingUser.id;
+        logger.info(`User ${user.email} already exists (${userId})`);
       } else {
-        logger.error(`Failed to create auth user ${user.email}: ${authError.message}`);
+        logger.error(
+          `Failed to create auth user ${user.email}: ${authError.message}`
+        );
         continue;
       }
     } else {
       userId = authData.user.id;
+      logger.info(`Created auth user ${user.email} (${userId})`);
     }
 
+    // Upsert profile
     await supabaseAdmin.from("profiles").upsert({
       id: userId,
       email: user.email,
@@ -107,26 +136,41 @@ async function seed() {
       is_active: true,
     });
 
-    await supabaseAdmin.from("user_roles").upsert(
-      { user_id: userId, role: user.role },
-      { onConflict: "user_id,role" }
-    );
+    // Upsert role
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert(
+        { user_id: userId, role: user.role },
+        { onConflict: "user_id,role" }
+      );
 
-    // If PATIENT, ensure they exist in patients table
+    // If PATIENT, ensure they exist in patients table with auth_user_id
     if (user.role === "PATIENT") {
-      const { data: existingPatient } = await supabaseAdmin.from("patients").select("id").eq("id", userId).limit(1);
+      const { data: existingPatient } = await supabaseAdmin
+        .from("patients")
+        .select("id")
+        .eq("auth_user_id", userId)
+        .limit(1);
+
       if (!existingPatient || existingPatient.length === 0) {
-        await supabaseAdmin.from("patients").insert({
-          id: userId,
-          patient_code: "PT-DEMO-001",
+        const { error: pErr } = await supabaseAdmin.from("patients").insert({
+          auth_user_id: userId,
+          patient_code: "P-10001",
           full_name: user.name,
-          mobile: "9999999999"
+          mobile: "9999999999",
         });
+        if (pErr) {
+          logger.warn(`Failed to create patient record: ${pErr.message}`);
+        } else {
+          logger.info(`Created patient record for ${user.email}`);
+        }
+      } else {
+        logger.info(`Patient record for ${user.email} already exists`);
       }
     }
   }
 
-  logger.info("Seed completed.");
+  logger.info("Seed completed successfully!");
 }
 
 seed().catch((err) => {

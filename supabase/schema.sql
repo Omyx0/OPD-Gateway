@@ -58,6 +58,7 @@ CREATE TABLE doctors (
 -- 6. Patients
 CREATE TABLE patients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    auth_user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
     patient_code TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
     date_of_birth DATE,

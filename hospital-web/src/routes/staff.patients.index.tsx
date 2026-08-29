@@ -22,7 +22,8 @@ import {
 import { PriorityBadge } from "@/components/common/PriorityBadge";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { AsyncSection, StateDemoBar, useMockLoad } from "@/components/common/AsyncSection";
-import { useStaffStore } from "@/state/staff-store";
+import { useStaffAuth } from "@/state/staff-auth";
+import { useQuery } from "@tanstack/react-query";
 import { staffService } from "@/services";
 import type { Priority, QueueStatus } from "@/services";
 
@@ -55,13 +56,44 @@ export const Route = createFileRoute("/staff/patients/")({
 });
 
 function PatientListPage() {
-  const { queue } = useStaffStore();
+  const { user } = useStaffAuth();
   const navigate = useNavigate();
   const [term, setTerm] = useState("");
   const [department, setDepartment] = useState("all");
   const [priority, setPriority] = useState("all");
   const [status, setStatus] = useState("all");
   const { phase, setPhase, reload } = useMockLoad();
+
+  const { data: queue = [], isLoading } = useQuery({
+    queryKey: ["queue"],
+    queryFn: async () => {
+      if (!user?.token) return [];
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue`, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch queue");
+      const { data } = await res.json();
+      return data.map((d: any) => {
+        const dob = d.visits?.patients?.date_of_birth;
+        const age = dob ? Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000) : null;
+        return {
+          id: d.id,
+          token: d.token,
+          priority: d.priority,
+          status: d.status,
+          waitMinutes: Math.round((Date.now() - new Date(d.arrival_time).getTime()) / 60000),
+          department: d.departments?.name ?? 'General',
+          patient: {
+            name: d.visits?.patients?.full_name ?? 'Unknown',
+            age: age ?? '-',
+            gender: d.visits?.patients?.gender ?? '-',
+            phone: d.visits?.patients?.mobile ?? ''
+          }
+        };
+      });
+    },
+    refetchInterval: 5000
+  });
 
   const results = useMemo(() => {
     const q = term.trim().toLowerCase();
@@ -95,7 +127,7 @@ function PatientListPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Patients</h1>
           <p className="text-sm text-muted-foreground">
-            {results.length} of {queue.length} records (mock data)
+            {results.length} of {queue.length} records
           </p>
         </div>
         <Button onClick={() => navigate({ to: "/staff/patients/new" })} className="rounded-full bg-teal-600 hover:bg-teal-700 text-white">

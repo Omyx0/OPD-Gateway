@@ -4,8 +4,10 @@ import { authorize } from "../middleware/authorize.js";
 import { validate } from "../middleware/validate.js";
 import { sendSuccess } from "../utils/response.js";
 import { supabaseAdmin } from "../config/supabase.js";
+import { triageModel } from "../config/gemini.js";
 import { NotFoundError } from "../utils/errors.js";
 import { z } from "zod";
+import { logger } from "../utils/logger.js";
 
 const router = Router();
 
@@ -15,7 +17,8 @@ const createSessionSchema = z.object({
 });
 
 const extractSchema = z.object({
-  sessionId: z.string().uuid(),
+  sessionId: z.string().uuid().optional(),
+  visitId: z.string().uuid().optional(),
   message: z.string().min(1, "Message is required."),
 });
 
@@ -29,7 +32,7 @@ const assessSchema = z.object({
 router.post(
   "/session",
   authenticate,
-  authorize("STAFF", "DOCTOR", "ADMIN"),
+  authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"),
   validate({ body: createSessionSchema }),
   async (req, res, next) => {
     try {
@@ -44,14 +47,27 @@ router.post(
 
       if (visitError || !visit) throw new NotFoundError("Visit not found.");
 
-      // TODO: Create session in ai_interactions table
-      // For now, return a placeholder session
-      sendSuccess(res, {
-        sessionId: crypto.randomUUID(),
-        visitId,
-        language,
-        status: "ACTIVE",
-      }, 201);
+      // Log the AI interaction
+      await supabaseAdmin.from("ai_interactions").insert({
+        visit_id: visitId,
+        provider: "GEMINI",
+        model_name: "gemini-2.5-flash",
+        operation: "TRIAGE_SESSION_CREATE",
+        input_type: "TEXT",
+        success: true,
+        latency_ms: 0,
+      });
+
+      sendSuccess(
+        res,
+        {
+          sessionId: crypto.randomUUID(),
+          visitId,
+          language,
+          status: "ACTIVE",
+        },
+        201
+      );
     } catch (err) {
       next(err);
     }
@@ -64,44 +80,236 @@ router.post(
 router.post(
   "/extract",
   authenticate,
-  authorize("STAFF", "DOCTOR", "ADMIN"),
+  authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"),
   validate({ body: extractSchema }),
   async (req, res, next) => {
+    const startTime = Date.now();
     try {
-      // TODO: Integrate Gemini API for symptom extraction
-      // Placeholder response matching the API contract
+      const { message, visitId } = req.body;
+
+      const prompt = `You are a medical triage assistant in an Outpatient Department (OPD).
+A patient has described their symptoms. Extract structured medical information from their message.
+
+Patient message: "${message}"
+
+Respond ONLY with a valid JSON object (no markdown, no code fences) with this exact structure:
+{
+  "symptoms": [
+    {
+      "name": "symptom name",
+      "bodyArea": "affected body area",
+      "severity": "mild|moderate|severe",
+      "duration": "how long they've had it"
+    }
+  ],
+  "redFlags": ["list of any concerning symptoms that need immediate attention"],
+  "missingInformation": ["list of important questions to ask the patient"],
+  "summary": "brief clinical summary of the patient's complaint"
+}`;
+
+      const result = await triageModel.generateContent(prompt);
+      const responseText = result.response.text();
+      const latencyMs = Date.now() - startTime;
+
+      // Parse the JSON response from Gemini
+      let parsed;
+      try {
+        // Try to extract JSON from the response (handle potential markdown code fences)
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        parsed = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
+      } catch (parseErr) {
+        logger.warn("Failed to parse Gemini response, using fallback", {
+          responseText,
+        });
+        parsed = {
+          symptoms: [{ name: message.slice(0, 50), bodyArea: "unknown", severity: "moderate", duration: "unknown" }],
+          redFlags: [],
+          missingInformation: ["Please describe your symptoms in more detail."],
+          summary: message,
+        };
+      }
+
+      // Log the AI interaction
+      if (visitId) {
+        await supabaseAdmin.from("ai_interactions").insert({
+          visit_id: visitId,
+          provider: "GEMINI",
+          model_name: "gemini-2.5-flash",
+          operation: "SYMPTOM_EXTRACTION",
+          input_type: "TEXT",
+          success: true,
+          latency_ms: latencyMs,
+        });
+      }
+
       sendSuccess(res, {
-        symptoms: [],
-        redFlags: [],
-        missingInformation: [],
-        message: "Gemini integration pending.",
+        symptoms: parsed.symptoms ?? [],
+        redFlags: parsed.redFlags ?? [],
+        missingInformation: parsed.missingInformation ?? [],
+        summary: parsed.summary ?? "",
       });
     } catch (err) {
+      logger.error("Gemini symptom extraction failed", { error: err });
       next(err);
     }
   }
 );
 
 /**
- * POST /triage/assess — Run triage assessment
+ * POST /triage/assess — Run triage assessment via Gemini
+ *
+ * This is the main triage endpoint that:
+ * 1. Fetches symptoms from the visit
+ * 2. Sends them to Gemini for assessment
+ * 3. Saves the triage assessment in the DB
+ * 4. Updates the queue ticket priority if warranted
  */
 router.post(
   "/assess",
   authenticate,
-  authorize("STAFF", "DOCTOR", "ADMIN"),
+  authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"),
   validate({ body: assessSchema }),
   async (req, res, next) => {
+    const startTime = Date.now();
     try {
-      // TODO: Implement full triage pipeline
-      // Gemini + ML model + safety rules + queue ticket creation
+      const { visitId } = req.body;
+
+      // 1. Fetch the visit and its symptoms
+      const { data: visit, error: visitError } = await supabaseAdmin
+        .from("visits")
+        .select("id, patient_id, department_id, status, patients(full_name, date_of_birth, gender)")
+        .eq("id", visitId)
+        .single();
+
+      if (visitError || !visit) throw new NotFoundError("Visit not found.");
+
+      const { data: symptoms } = await supabaseAdmin
+        .from("symptoms")
+        .select("symptom_name, patient_description, duration, severity")
+        .eq("visit_id", visitId);
+
+      const symptomList = (symptoms ?? [])
+        .map((s) => `- ${s.symptom_name}: ${s.patient_description || ''} (duration: ${s.duration || 'unknown'}, severity: ${s.severity || 'unknown'})`)
+        .join("\n");
+
+      const patientInfo = visit.patients
+        ? `Patient: ${(visit.patients as any).full_name}, Gender: ${(visit.patients as any).gender || 'unknown'}, DOB: ${(visit.patients as any).date_of_birth || 'unknown'}`
+        : "Patient details unavailable";
+
+      // 2. Send to Gemini for triage assessment
+      const prompt = `You are an AI-powered OPD triage system. Based on the patient's reported symptoms, provide a triage assessment.
+
+${patientInfo}
+
+Reported symptoms:
+${symptomList || "No symptoms recorded yet."}
+
+Respond ONLY with a valid JSON object (no markdown, no code fences) with this exact structure:
+{
+  "priority": "RED|YELLOW|GREEN",
+  "confidence": 0.0 to 1.0,
+  "urgencyLevel": "EMERGENCY|URGENT|STANDARD|ROUTINE",
+  "redFlags": ["list of any red flags detected"],
+  "recommendedAction": "EMERGENCY|URGENT|ROUTINE",
+  "recommendedDepartment": "suggested department name or null",
+  "reasoning": "brief explanation of the triage decision",
+  "additionalNotes": "any additional clinical observations"
+}
+
+Triage priority rules:
+- RED = Emergency: Chest pain, severe breathing difficulty, stroke symptoms, severe bleeding, loss of consciousness
+- YELLOW = Urgent: High fever (>103°F), moderate pain, persistent vomiting, suspected fractures
+- GREEN = Routine: Mild symptoms, follow-up visits, chronic condition management, minor ailments`;
+
+      const result = await triageModel.generateContent(prompt);
+      const responseText = result.response.text();
+      const latencyMs = Date.now() - startTime;
+
+      // Parse Gemini response
+      let assessment;
+      try {
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        assessment = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
+      } catch (parseErr) {
+        logger.warn("Failed to parse Gemini triage response, using safe default", { responseText });
+        assessment = {
+          priority: "GREEN",
+          confidence: 0.5,
+          urgencyLevel: "ROUTINE",
+          redFlags: [],
+          recommendedAction: "ROUTINE",
+          recommendedDepartment: null,
+          reasoning: "Unable to parse AI assessment. Defaulting to routine priority for safety review by staff.",
+          additionalNotes: "",
+        };
+      }
+
+      // 3. Save triage assessment to database
+      const { data: triageRecord, error: triageError } = await supabaseAdmin
+        .from("triage_assessments")
+        .insert({
+          visit_id: visitId,
+          urgency: assessment.priority || "GREEN",
+          confidence: assessment.confidence ?? 0,
+          recommended_action: assessment.recommendedAction || "ROUTINE",
+          red_flags: assessment.redFlags ?? [],
+          structured_result: assessment,
+          model_name: "gemini-2.5-flash",
+          model_version: "v1",
+        })
+        .select()
+        .single();
+
+      if (triageError) {
+        logger.error("Failed to save triage assessment", { error: triageError });
+      }
+
+      // 4. Update queue ticket priority based on triage result
+      const { data: queueTicket } = await supabaseAdmin
+        .from("queue_tickets")
+        .select("id")
+        .eq("visit_id", visitId)
+        .neq("status", "COMPLETED")
+        .neq("status", "SKIPPED")
+        .limit(1)
+        .single();
+
+      if (queueTicket && assessment.priority) {
+        await supabaseAdmin
+          .from("queue_tickets")
+          .update({
+            priority: assessment.priority,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", queueTicket.id);
+        
+        logger.info(`Updated queue ticket ${queueTicket.id} priority to ${assessment.priority}`);
+      }
+
+      // 5. Log AI interaction
+      await supabaseAdmin.from("ai_interactions").insert({
+        visit_id: visitId,
+        provider: "GEMINI",
+        model_name: "gemini-2.5-flash",
+        operation: "TRIAGE_ASSESSMENT",
+        input_type: "TEXT",
+        success: true,
+        latency_ms: latencyMs,
+      });
+
       sendSuccess(res, {
-        priority: "GREEN",
-        confidence: 0,
-        redFlags: [],
-        recommendedAction: "ROUTINE",
-        message: "Triage pipeline pending implementation.",
+        id: triageRecord?.id,
+        priority: assessment.priority || "GREEN",
+        confidence: assessment.confidence ?? 0,
+        urgencyLevel: assessment.urgencyLevel || "ROUTINE",
+        redFlags: assessment.redFlags ?? [],
+        recommendedAction: assessment.recommendedAction || "ROUTINE",
+        recommendedDepartment: assessment.recommendedDepartment,
+        reasoning: assessment.reasoning || "",
+        additionalNotes: assessment.additionalNotes || "",
       });
     } catch (err) {
+      logger.error("Triage assessment failed", { error: err });
       next(err);
     }
   }
@@ -113,7 +321,7 @@ router.post(
 router.get(
   "/:visitId",
   authenticate,
-  authorize("STAFF", "DOCTOR", "ADMIN"),
+  authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"),
   async (req, res, next) => {
     try {
       const { data, error } = await supabaseAdmin
