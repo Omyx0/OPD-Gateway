@@ -13,10 +13,16 @@ const app = express();
 
 // ── Security ────────────────────────────────────────────────────────
 app.use(helmet());
+const clientUrls = env.CLIENT_URL
+  ? env.CLIENT_URL.split(",").map((u) => u.trim()).filter(Boolean)
+  : [];
+
 app.use(
   cors({
     origin: [
-      env.CLIENT_URL,
+      ...clientUrls,
+      "https://opd-gateway.vercel.app",
+      "https://opd-gateway-server.vercel.app",
       "http://localhost:5173",
       "http://localhost:5174",
       "http://localhost:5175",
@@ -27,6 +33,7 @@ app.use(
       "http://127.0.0.1:5176",
       /^http:\/\/localhost:[0-9]+$/,
       /^http:\/\/127\.0\.0\.1:[0-9]+$/,
+      /^https:\/\/.*\.vercel\.app$/,
     ],
     credentials: true,
   })

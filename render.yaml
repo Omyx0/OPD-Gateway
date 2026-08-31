@@ -16,7 +16,7 @@ services:
       - key: PORT
         value: 5000
       - key: CLIENT_URL
-        value: http://localhost:5173
+        value: https://opd-gateway-server.vercel.app,https://opd-gateway.vercel.app
       - key: SUPABASE_URL
         value: https://sjsghxacjgrxiboeygek.supabase.co
       - key: SUPABASE_SERVICE_ROLE_KEY
