@@ -12,7 +12,11 @@ export async function apiRequest<T>(path: string, token: string, options: Reques
 
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(body.message || body.error || 'Something went wrong. Please try again.');
+    const message =
+      typeof body.error === 'string'
+        ? body.error
+        : body.error?.message || body.message || 'Something went wrong. Please try again.';
+    throw new Error(message);
   }
 
   return body.data as T;

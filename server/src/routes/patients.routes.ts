@@ -37,13 +37,47 @@ router.get("/me", authenticate, async (req, res, next) => {
     const { data, error } = await supabaseAdmin
       .from("patients")
       .select("id, patient_code, full_name, date_of_birth, gender, mobile, preferred_language")
-      .eq("auth_user_id", req.user!.id)
+      .eq("id", req.user!.id)
       .maybeSingle();
 
     if (error) throw error;
-    if (!data) throw new NotFoundError("Patient profile not found. Please complete registration first.");
+    if (data) {
+      sendSuccess(res, data);
+      return;
+    }
 
-    sendSuccess(res, data);
+    // Auto-provision patient record if missing
+    const fullName = req.user!.email ? req.user!.email.split("@")[0] : "Patient";
+
+    // 1. Ensure profile exists
+    await supabaseAdmin.from("profiles").upsert({
+      id: req.user!.id,
+      full_name: fullName,
+      email: req.user!.email,
+      is_active: true,
+    }, { onConflict: "id" });
+
+    // 2. Ensure role
+    await supabaseAdmin.from("user_roles").upsert({
+      user_id: req.user!.id,
+      role: "PATIENT",
+    }, { onConflict: "user_id,role" });
+
+    // 3. Generate unique patient code
+    const code = `PT-${Math.floor(10000 + Math.random() * 90000)}`;
+    const { data: newPatient, error: insertErr } = await supabaseAdmin
+      .from("patients")
+      .upsert({
+        id: req.user!.id,
+        patient_code: code,
+        full_name: fullName,
+        mobile: "9999999999",
+      }, { onConflict: "id" })
+      .select("id, patient_code, full_name, date_of_birth, gender, mobile, preferred_language")
+      .single();
+
+    if (insertErr) throw insertErr;
+    sendSuccess(res, newPatient);
   } catch (err) {
     next(err);
   }
@@ -54,10 +88,25 @@ router.post("/me", authenticate, async (req, res, next) => {
     const fullName = typeof req.body?.fullName === "string" && req.body.fullName.trim()
       ? req.body.fullName.trim()
       : (req.user!.email.split("@")[0] || "Patient");
+
+    // 1. Ensure profile exists
+    await supabaseAdmin.from("profiles").upsert({
+      id: req.user!.id,
+      full_name: fullName,
+      email: req.user!.email,
+      is_active: true,
+    }, { onConflict: "id" });
+
+    // 2. Ensure role
+    await supabaseAdmin.from("user_roles").upsert({
+      user_id: req.user!.id,
+      role: "PATIENT",
+    }, { onConflict: "user_id,role" });
+
     const { data: existing } = await supabaseAdmin
       .from("patients")
-      .select("id")
-      .eq("auth_user_id", req.user!.id)
+      .select("id, patient_code, full_name")
+      .eq("id", req.user!.id)
       .maybeSingle();
 
     if (existing) {
@@ -65,10 +114,15 @@ router.post("/me", authenticate, async (req, res, next) => {
       return;
     }
 
-    const { count } = await supabaseAdmin.from("patients").select("id", { count: "exact", head: true });
+    const code = `PT-${Math.floor(10000 + Math.random() * 90000)}`;
     const { data, error } = await supabaseAdmin
       .from("patients")
-      .insert({ auth_user_id: req.user!.id, patient_code: `P-${String((count ?? 0) + 10001)}`, full_name: fullName })
+      .upsert({
+        id: req.user!.id,
+        patient_code: code,
+        full_name: fullName,
+        mobile: "9999999999",
+      }, { onConflict: "id" })
       .select("id, patient_code, full_name")
       .single();
 

@@ -13,7 +13,7 @@ const envSchema = z.object({
   SUPABASE_ANON_KEY: z.string().min(1),
 
   GEMINI_API_KEY: z.string().min(1),
-  GEMINI_TRIAGE_MODEL: z.string().default("gemini-2.5-flash"),
+  GEMINI_TRIAGE_MODEL: z.string().default("gemini-3.5-flash"),
 
   ML_SERVICE_URL: z.string().url().default("http://localhost:8000"),
 });

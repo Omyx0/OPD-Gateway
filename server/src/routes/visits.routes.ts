@@ -163,13 +163,13 @@ router.get("/:id", authenticate, authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"
   try {
     let query = supabaseAdmin
       .from("visits")
-      .select("*, patients(full_name, patient_code, auth_user_id), departments(name)")
+      .select("*, patients(full_name, patient_code), departments(name)")
       .eq("id", req.params.id);
 
     const { data, error } = await query.single();
 
     if (error || !data) throw new NotFoundError("Visit not found.");
-    if (req.user!.role === "PATIENT" && data.patients?.auth_user_id !== req.user!.id) {
+    if (req.user!.role === "PATIENT" && data.patient_id !== req.user!.id) {
       throw new NotFoundError("Visit not found.");
     }
 

@@ -263,7 +263,7 @@ export default function Symptoms() {
       </main>
 
       {/* Fixed Bottom Continue Bar */}
-      <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-white/85 backdrop-blur-xl border-t border-white/90 z-40 shadow-xl">
+      <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-white/85 backdrop-blur-xl border-t border-white/90 z-50 shadow-xl">
         <button
           disabled={isSubmitting || !symptoms.trim()}
           onClick={handleSubmit}

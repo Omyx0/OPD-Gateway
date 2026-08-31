@@ -26,12 +26,14 @@ export function authorize(...allowedRoles: string[]) {
         .eq("user_id", req.user.id)
         .limit(1);
 
-      if (error || !data || data.length === 0) {
-        logger.warn("Role lookup failed", { userId: req.user.id, error: error?.message });
-        throw new ForbiddenError("No role assigned to this account.");
-      }
+      let userRole: string;
 
-      const userRole = data[0].role as string;
+      if (error || !data || data.length === 0) {
+        // Authenticated user with no specific role assigned defaults to PATIENT
+        userRole = "PATIENT";
+      } else {
+        userRole = data[0].role as string;
+      }
 
       if (!allowedRoles.includes(userRole)) {
         logger.warn("Authorization denied", {

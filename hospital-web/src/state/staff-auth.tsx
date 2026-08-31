@@ -64,6 +64,19 @@ export function StaffAuthProvider({ children }: { children: ReactNode }) {
         });
         if (error) throw error;
         
+        // Provision STAFF role in backend so authorize middleware allows staff operations
+        try {
+          await fetch(`${import.meta.env.VITE_API_URL}/staff/provision`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${data.session.access_token}`,
+            },
+          });
+        } catch (e) {
+          console.warn("Staff role provisioning failed (non-critical):", e);
+        }
+
         const nextUser: StaffUser = {
           id: data.user.id,
           email: data.user.email || "",

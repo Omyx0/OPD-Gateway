@@ -102,8 +102,8 @@ router.get("/my-status", authenticate, async (req, res, next) => {
     const { data: patientData } = await supabaseAdmin
       .from("patients")
       .select("id")
-      .eq("auth_user_id", req.user!.id)
-      .single();
+      .eq("id", req.user!.id)
+      .maybeSingle();
 
     if (!patientData) {
       sendSuccess(res, []);

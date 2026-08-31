@@ -9,7 +9,19 @@ const server = http.createServer(app);
 // ── Socket.io ───────────────────────────────────────────────────────
 const io = new SocketIOServer(server, {
   cors: {
-    origin: env.CLIENT_URL,
+    origin: [
+      env.CLIENT_URL,
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
+      "http://localhost:5176",
+      "http://127.0.0.1:5173",
+      "http://127.0.0.1:5174",
+      "http://127.0.0.1:5175",
+      "http://127.0.0.1:5176",
+      /^http:\/\/localhost:[0-9]+$/,
+      /^http:\/\/127\.0\.0\.1:[0-9]+$/,
+    ],
     credentials: true,
   },
 });

@@ -48,7 +48,7 @@ function NewPatientPage() {
       });
       if (!patientRes.ok) {
         const err = await patientRes.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to create patient");
+        throw new Error(typeof err.error === 'string' ? err.error : err.error?.message || err.message || "Failed to create patient");
       }
       const patientData = await patientRes.json();
       const patientId = patientData.data.id;
@@ -71,7 +71,7 @@ function NewPatientPage() {
       });
       if (!visitRes.ok) {
         const err = await visitRes.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to create visit");
+        throw new Error(typeof err.error === 'string' ? err.error : err.error?.message || err.message || "Failed to create visit");
       }
       
       return await visitRes.json();

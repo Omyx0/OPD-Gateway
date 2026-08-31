@@ -270,7 +270,7 @@ export default function Triage() {
       </main>
 
       {/* Fixed Bottom Action */}
-      <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-white/85 backdrop-blur-xl border-t border-white/90 z-40 shadow-xl">
+      <div className="fixed bottom-0 left-0 right-0 w-full max-w-md mx-auto p-4 bg-white/85 backdrop-blur-xl border-t border-white/90 z-50 shadow-xl">
         <button
           onClick={() => navigate('/dashboard')}
           className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-2xl py-3.5 font-bold text-sm shadow-lg flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
