@@ -29,6 +29,7 @@ export const Route = createFileRoute("/staff/")({
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStaffAuth } from "@/state/staff-auth";
+import { API_URL } from "@/lib/api";
 
 function StaffDashboard() {
   const { user } = useStaffAuth();
@@ -37,7 +38,7 @@ function StaffDashboard() {
   const { data: queueData = [], isLoading } = useQuery({
     queryKey: ["queue"],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue`, {
+      const res = await fetch(`${API_URL}/queue`, {
         headers: { Authorization: `Bearer ${user?.token}` }
       });
       if (!res.ok) throw new Error("Failed to fetch queue");
@@ -66,7 +67,7 @@ function StaffDashboard() {
 
   const callMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue/${id}/call`, {
+      const res = await fetch(`${API_URL}/queue/${id}/call`, {
         method: "POST",
         headers: { Authorization: `Bearer ${user?.token}` }
       });

@@ -17,6 +17,7 @@ import { AsyncSection, StateDemoBar, useMockLoad } from "@/components/common/Asy
 import { useStaffAuth } from "@/state/staff-auth";
 import { useEffect, useState } from "react";
 import type { QueueEntry } from "@/services/types";
+import { API_URL } from "@/lib/api";
 
 export const Route = createFileRoute("/staff/queue")({
   head: () => ({
@@ -37,7 +38,7 @@ function QueuePage() {
   const fetchQueue = async () => {
     try {
       if (!user?.token) return;
-      const res = await fetch(`${import.meta.env['VITE_API_URL']}/queue`, {
+      const res = await fetch(`${API_URL}/queue`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const json = await res.json();
@@ -80,7 +81,7 @@ function QueuePage() {
     
     // API call to update status to CALLED
     try {
-      await fetch(`${import.meta.env['VITE_API_URL']}/queue/${nextWaiting.id}/call`, {
+      await fetch(`${API_URL}/queue/${nextWaiting.id}/call`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${user?.token}` }
       });

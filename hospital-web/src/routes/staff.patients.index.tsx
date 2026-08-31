@@ -24,6 +24,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { AsyncSection, StateDemoBar, useMockLoad } from "@/components/common/AsyncSection";
 import { useStaffAuth } from "@/state/staff-auth";
 import { useQuery } from "@tanstack/react-query";
+import { API_URL } from "@/lib/api";
 import { staffService } from "@/services";
 import type { Priority, QueueStatus } from "@/services";
 
@@ -68,7 +69,7 @@ function PatientListPage() {
     queryKey: ["queue"],
     queryFn: async () => {
       if (!user?.token) return [];
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue`, {
+      const res = await fetch(`${API_URL}/queue`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       if (!res.ok) throw new Error("Failed to fetch queue");

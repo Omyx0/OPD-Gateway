@@ -1,4 +1,10 @@
-const apiUrl = import.meta.env.VITE_API_URL;
+export const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
+    ? 'https://opd-gateway.onrender.com/api/v1'
+    : 'http://localhost:5000/api/v1');
+
+const apiUrl = API_URL;
 
 export async function apiRequest<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`, {

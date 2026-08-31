@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useStaffAuth } from "@/state/staff-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { API_URL } from "@/lib/api";
 
 export const Route = createFileRoute("/staff/patients/$patientId")({
   head: () => ({
@@ -72,7 +73,7 @@ function PatientDetailPage() {
   const { data: entry, isLoading, error } = useQuery({
     queryKey: ["queue-ticket", patientId],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue/${patientId}`, {
+      const res = await fetch(`${API_URL}/queue/${patientId}`, {
         headers: { Authorization: `Bearer ${user?.token}` }
       });
       if (!res.ok) throw new Error("Failed to fetch patient");
@@ -107,7 +108,7 @@ function PatientDetailPage() {
     queryKey: ["visit-symptoms", entry?.visitId],
     queryFn: async () => {
       if (!entry?.visitId) return [];
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/visits/${entry.visitId}/symptoms`, {
+      const res = await fetch(`${API_URL}/visits/${entry.visitId}/symptoms`, {
         headers: { Authorization: `Bearer ${user?.token}` }
       });
       if (!res.ok) return [];
@@ -122,7 +123,7 @@ function PatientDetailPage() {
     queryKey: ["visit-triage", entry?.visitId],
     queryFn: async () => {
       if (!entry?.visitId) return null;
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/triage/${entry.visitId}`, {
+      const res = await fetch(`${API_URL}/triage/${entry.visitId}`, {
         headers: { Authorization: `Bearer ${user?.token}` }
       });
       if (!res.ok) return null;
@@ -136,7 +137,7 @@ function PatientDetailPage() {
   const { data: alerts = [] } = useQuery({
     queryKey: ["ticket-alerts", patientId],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/alerts?status=ACTIVE`, {
+      const res = await fetch(`${API_URL}/alerts?status=ACTIVE`, {
         headers: { Authorization: `Bearer ${user?.token}` }
       });
       if (!res.ok) return [];
@@ -149,7 +150,7 @@ function PatientDetailPage() {
   // Status update mutation
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue/${id}/status`, {
+      const res = await fetch(`${API_URL}/queue/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -170,7 +171,7 @@ function PatientDetailPage() {
   // Alert acknowledge mutation
   const ackMutation = useMutation({
     mutationFn: async (alertId: string) => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/alerts/${alertId}/acknowledge`, {
+      const res = await fetch(`${API_URL}/alerts/${alertId}/acknowledge`, {
         method: "POST",
         headers: { Authorization: `Bearer ${user?.token}` },
       });

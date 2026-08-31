@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useState, useEffect, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
+import { API_URL } from "@/lib/api";
 
 export interface StaffUser {
   id: string;
@@ -66,7 +67,7 @@ export function StaffAuthProvider({ children }: { children: ReactNode }) {
         
         // Provision STAFF role in backend so authorize middleware allows staff operations
         try {
-          await fetch(`${import.meta.env.VITE_API_URL}/staff/provision`, {
+          await fetch(`${API_URL}/staff/provision`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

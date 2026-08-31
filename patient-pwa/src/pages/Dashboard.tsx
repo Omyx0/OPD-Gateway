@@ -5,6 +5,7 @@ import {
   ChevronRight, Stethoscope, Activity, FilePlus2, Loader2, Sparkles, 
   Clock, MapPin, Phone, RefreshCw, AlertCircle, CheckCircle2 
 } from 'lucide-react';
+import { API_URL } from '../lib/api';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -22,7 +23,7 @@ export default function Dashboard() {
   const fetchActiveTicket = async () => {
     if (!user?.token) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue/my-status`, {
+      const res = await fetch(`${API_URL}/queue/my-status`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       const data = await res.json();

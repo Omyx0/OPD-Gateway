@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useStaffAuth } from "@/state/staff-auth";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { API_URL } from "@/lib/api";
 
 export const Route = createFileRoute("/staff/patients/new")({
   head: () => ({
@@ -36,7 +37,7 @@ function NewPatientPage() {
       const genderMap: Record<string, string> = { m: "MALE", f: "FEMALE", o: "OTHER" };
       
       // 1. Create Patient
-      const patientRes = await fetch(`${import.meta.env.VITE_API_URL}/patients`, {
+      const patientRes = await fetch(`${API_URL}/patients`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -54,12 +55,12 @@ function NewPatientPage() {
       const patientId = patientData.data.id;
 
       // Fetch first department (fallback)
-      const deptRes = await fetch(`${import.meta.env.VITE_API_URL}/departments`, { headers });
+      const deptRes = await fetch(`${API_URL}/departments`, { headers });
       const deptData = await deptRes.json();
       const deptId = deptData.data[0]?.id;
 
       // 2. Create Visit (this also auto-creates a queue ticket on the backend)
-      const visitRes = await fetch(`${import.meta.env.VITE_API_URL}/visits`, {
+      const visitRes = await fetch(`${API_URL}/visits`, {
         method: "POST",
         headers,
         body: JSON.stringify({

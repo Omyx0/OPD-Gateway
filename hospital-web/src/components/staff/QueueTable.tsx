@@ -50,6 +50,7 @@ import { useNotifications } from "@/state/notifications";
 import { queueService } from "@/services";
 import type { QueueEntry, QueueStatus } from "@/services";
 import { useStaffAuth } from "@/state/staff-auth";
+import { API_URL } from "@/lib/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const DEPARTMENTS = queueService.listDepartmentNames();
@@ -80,7 +81,7 @@ export function QueueTable({
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: QueueStatus }) => {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/queue/${id}/status`, {
+      const res = await fetch(`${API_URL}/queue/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
