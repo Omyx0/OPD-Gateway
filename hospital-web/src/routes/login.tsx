@@ -111,6 +111,7 @@ function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@hospital.org"
+              autoComplete="email"
             />
           </div>
           <div className="space-y-2">
@@ -122,6 +123,7 @@ function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pr-10"
+                autoComplete="current-password"
               />
               <button
                 type="button"
