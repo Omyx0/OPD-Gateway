@@ -157,6 +157,35 @@ router.get(
 );
 
 /**
+ * GET /visits/my-history — Get current patient's visit history and records
+ */
+router.get("/my-history", authenticate, async (req, res, next) => {
+  try {
+    const { data: patientRecord } = await supabaseAdmin
+      .from("patients")
+      .select("id")
+      .or(`id.eq.${req.user!.id},auth_user_id.eq.${req.user!.id}`)
+      .maybeSingle();
+
+    if (!patientRecord) {
+      sendSuccess(res, []);
+      return;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("visits")
+      .select("id, visit_type, status, registered_at, completed_at, departments(name), clinical_records(diagnosis, disposition, plan, created_at)")
+      .eq("patient_id", patientRecord.id)
+      .order("registered_at", { ascending: false });
+
+    if (error) throw error;
+    sendSuccess(res, data ?? []);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /visits/:id — Get a single visit
  */
 router.get("/:id", authenticate, authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"), async (req, res, next) => {
@@ -169,8 +198,16 @@ router.get("/:id", authenticate, authorize("STAFF", "DOCTOR", "ADMIN", "PATIENT"
     const { data, error } = await query.single();
 
     if (error || !data) throw new NotFoundError("Visit not found.");
-    if (req.user!.role === "PATIENT" && data.patient_id !== req.user!.id) {
-      throw new NotFoundError("Visit not found.");
+    if (req.user!.role === "PATIENT") {
+      const { data: patientRecord } = await supabaseAdmin
+        .from("patients")
+        .select("id")
+        .or(`id.eq.${req.user!.id},auth_user_id.eq.${req.user!.id}`)
+        .maybeSingle();
+
+      if (!patientRecord || data.patient_id !== patientRecord.id) {
+        throw new NotFoundError("Visit not found.");
+      }
     }
 
     sendSuccess(res, data);

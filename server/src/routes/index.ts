@@ -9,6 +9,10 @@ import departmentsRoutes from "./departments.routes.js";
 import alertsRoutes from "./alerts.routes.js";
 import analyticsRoutes from "./analytics.routes.js";
 import staffRoutes from "./staff.routes.js";
+import consultationRoutes from "./consultation.routes.js";
+import adminRoutes from "./admin.routes.js";
+import notificationsRoutes from "./notifications.routes.js";
+import mapRoutes from "./map.routes.js";
 
 const router = Router();
 
@@ -21,5 +25,10 @@ router.use("/departments", departmentsRoutes);
 router.use("/alerts", alertsRoutes);
 router.use("/analytics", analyticsRoutes);
 router.use("/staff", staffRoutes);
+router.use("/consultation", consultationRoutes);
+router.use("/admin", adminRoutes);
+router.use("/notifications", notificationsRoutes);
+router.use("/map", mapRoutes);
 
 export default router;
+

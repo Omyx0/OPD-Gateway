@@ -37,7 +37,7 @@ router.get("/me", authenticate, async (req, res, next) => {
     const { data, error } = await supabaseAdmin
       .from("patients")
       .select("id, patient_code, full_name, date_of_birth, gender, mobile, preferred_language")
-      .eq("id", req.user!.id)
+      .or(`id.eq.${req.user!.id},auth_user_id.eq.${req.user!.id}`)
       .maybeSingle();
 
     if (error) throw error;
@@ -69,6 +69,7 @@ router.get("/me", authenticate, async (req, res, next) => {
       .from("patients")
       .upsert({
         id: req.user!.id,
+        auth_user_id: req.user!.id,
         patient_code: code,
         full_name: fullName,
         mobile: "9999999999",

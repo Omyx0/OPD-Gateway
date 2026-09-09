@@ -19,31 +19,52 @@ interface StaffAuthStore {
 
 const StaffAuthContext = createContext<StaffAuthStore | null>(null);
 
+/** Fetch the user's real role from the backend. */
+async function fetchUserRole(token: string): Promise<{ role: string; name: string }> {
+  try {
+    const res = await fetch(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const body = await res.json();
+      return {
+        role: body.data?.role ?? "STAFF",
+        name: body.data?.name ?? "Staff",
+      };
+    }
+  } catch (e) {
+    console.warn("Failed to fetch user role", e);
+  }
+  return { role: "STAFF", name: "Staff" };
+}
+
 export function StaffAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<StaffUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
+        const { role, name } = await fetchUserRole(session.access_token);
         setUser({
           id: session.user.id,
           email: session.user.email || "",
-          name: session.user.email?.split('@')[0] || "Staff",
-          role: "STAFF", // Hardcoded for demo, normally would fetch from profiles/roles table
+          name,
+          role,
           token: session.access_token,
         });
       }
       setIsLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
+        const { role, name } = await fetchUserRole(session.access_token);
         setUser({
           id: session.user.id,
           email: session.user.email || "",
-          name: session.user.email?.split('@')[0] || "Staff",
-          role: "STAFF",
+          name,
+          role,
           token: session.access_token,
         });
       } else {
@@ -65,7 +86,8 @@ export function StaffAuthProvider({ children }: { children: ReactNode }) {
         });
         if (error) throw error;
         
-        // Provision STAFF role in backend so authorize middleware allows staff operations
+        // Provision role in backend based on email pattern
+        const roleToProvision = email.includes("doctor") ? "DOCTOR" : email.includes("admin") ? "ADMIN" : "STAFF";
         try {
           await fetch(`${API_URL}/staff/provision`, {
             method: "POST",
@@ -78,11 +100,14 @@ export function StaffAuthProvider({ children }: { children: ReactNode }) {
           console.warn("Staff role provisioning failed (non-critical):", e);
         }
 
+        // Fetch actual role from backend
+        const { role, name } = await fetchUserRole(data.session.access_token);
+
         const nextUser: StaffUser = {
           id: data.user.id,
           email: data.user.email || "",
-          name: email.split('@')[0],
-          role: "STAFF",
+          name,
+          role,
           token: data.session.access_token,
         };
         setUser(nextUser);
@@ -104,3 +129,4 @@ export function useStaffAuth() {
   if (!ctx) throw new Error("useStaffAuth must be used inside StaffAuthProvider");
   return ctx;
 }
+

@@ -28,4 +28,26 @@ npm-debug.log*
 
 # Lovable (legacy)
 .lovable/
-OPD DATASET/ 
+OPD DATASET/
+
+# PhysioNet restricted datasets (NEVER commit)
+server/ml/data/physionet/
+server/ml/data/mimic-iv-ed*/
+server/ml/data/clean_triage.csv
+
+# Old ML folder (moved to server/ml/)
+/ml/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# ML model artifacts (large binary files)
+*.joblib
+
+# Data Flow Diagram (large binary)
+*.pptx

@@ -5,6 +5,8 @@ import { validate } from "../middleware/validate.js";
 import { sendSuccess } from "../utils/response.js";
 import { supabaseAdmin } from "../config/supabase.js";
 import { NotFoundError } from "../utils/errors.js";
+import { logAudit } from "../utils/audit.js";
+import { emitQueueNewTicket, emitQueueStatusUpdated, emitQueuePatientCalled } from "../utils/socket.js";
 import { z } from "zod";
 
 const router = Router();
@@ -26,6 +28,19 @@ router.post(
   async (req, res, next) => {
     try {
       const { visitId, departmentId, priority } = req.body;
+
+      // Prevent duplicate active tickets for same visit
+      const { data: existing } = await supabaseAdmin
+        .from("queue_tickets")
+        .select("id")
+        .eq("visit_id", visitId)
+        .in("status", ["WAITING", "CALLED", "IN_PROGRESS"])
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        sendSuccess(res, { error: "Active queue ticket already exists for this visit.", existingTicketId: existing[0].id }, 409);
+        return;
+      }
 
       // Generate token (e.g., A-101)
       const { count } = await supabaseAdmin
@@ -49,7 +64,8 @@ router.post(
 
       if (error) throw error;
 
-      // TODO: Emit Socket.io event — queue:new-ticket
+      emitQueueNewTicket(req.app, data);
+      await logAudit({ actorUserId: req.user!.id, action: "QUEUE_TICKET_CREATED", entityType: "queue_ticket", entityId: data.id });
 
       sendSuccess(res, data, 201);
     } catch (err) {
@@ -102,7 +118,7 @@ router.get("/my-status", authenticate, async (req, res, next) => {
     const { data: patientData } = await supabaseAdmin
       .from("patients")
       .select("id")
-      .eq("id", req.user!.id)
+      .or(`id.eq.${req.user!.id},auth_user_id.eq.${req.user!.id}`)
       .maybeSingle();
 
     if (!patientData) {
@@ -186,7 +202,8 @@ router.patch(
 
       if (error || !data) throw new NotFoundError("Queue ticket not found.");
 
-      // TODO: Emit Socket.io event — queue:status-updated
+      emitQueueStatusUpdated(req.app, data);
+      await logAudit({ actorUserId: req.user!.id, action: "QUEUE_STATUS_UPDATED", entityType: "queue_ticket", entityId: data.id, metadata: { status: req.body.status } });
 
       sendSuccess(res, data);
     } catch (err) {
@@ -217,7 +234,8 @@ router.post(
 
       if (error || !data) throw new NotFoundError("Queue ticket not found.");
 
-      // TODO: Emit Socket.io event — queue:patient-called
+      emitQueuePatientCalled(req.app, data);
+      await logAudit({ actorUserId: req.user!.id, action: "PATIENT_CALLED", entityType: "queue_ticket", entityId: data.id });
 
       sendSuccess(res, data);
     } catch (err) {

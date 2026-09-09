@@ -3,6 +3,7 @@ import { Clock3, Loader2, RefreshCw, Stethoscope, CheckCircle2, FilePlus2 } from
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
+import { connectPatientSocket, onPatientQueueCalled, onPatientQueueUpdated } from '../lib/socket';
 
 type Ticket = {
   id: string;
@@ -32,11 +33,24 @@ export default function Queue() {
       setRefreshing(false);
     }
   };
-
   useEffect(() => {
     void refresh();
-    const interval = setInterval(refresh, 5000);
-    return () => clearInterval(interval);
+    if (user?.token) {
+      connectPatientSocket(user.token);
+      const unsubCalled = onPatientQueueCalled(() => {
+        void refresh();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      });
+      const unsubUpdated = onPatientQueueUpdated(() => {
+        void refresh();
+      });
+      const interval = setInterval(refresh, 8000);
+      return () => {
+        unsubCalled();
+        unsubUpdated();
+        clearInterval(interval);
+      };
+    }
   }, [user]);
 
   const handleManualRefresh = () => {

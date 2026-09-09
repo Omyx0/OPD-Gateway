@@ -12,6 +12,8 @@ import {
   Users,
   Menu,
   LogOut,
+  Stethoscope,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -21,18 +23,6 @@ import { useStaffAuth } from "@/state/staff-auth";
 import { NotificationBell } from "@/components/staff/NotificationBell";
 import { ConnectionDemoButton } from "@/components/common/ConnectionBanner";
 
-const nav: { to: string; label: string; icon: typeof Users; exact?: boolean }[] = [
-  { to: "/staff", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/staff/queue", label: "Queue", icon: ListOrdered },
-  { to: "/staff/patients", label: "Patients", icon: Users },
-  { to: "/staff/departments", label: "Departments", icon: Building2 },
-  { to: "/staff/alerts", label: "Alerts", icon: Bell },
-  { to: "/staff/analytics", label: "Analytics", icon: BarChart3 },
-];
-
-// Bottom bar keeps the five highest-traffic destinations on phones.
-const mobileNav = nav.filter((i) => i.label !== "Departments");
-
 export function StaffShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [collapsed, setCollapsed] = useState(false);
@@ -41,6 +31,21 @@ export function StaffShell({ children }: { children: ReactNode }) {
   const { alerts } = useStaffStore();
   const { user, signOut } = useStaffAuth();
   const unread = alerts.filter((a) => !a.acknowledged).length;
+
+  const nav = [
+    { to: "/staff", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { to: "/staff/queue", label: "Queue", icon: ListOrdered },
+    { to: "/staff/patients", label: "Patients", icon: Users },
+    { to: "/staff/consultation", label: "Consultations", icon: Stethoscope },
+    { to: "/staff/departments", label: "Departments", icon: Building2 },
+    { to: "/staff/alerts", label: "Alerts", icon: Bell },
+    { to: "/staff/analytics", label: "Analytics", icon: BarChart3 },
+    ...(user?.role === "ADMIN" || user?.email?.includes("admin")
+      ? [{ to: "/staff/admin", label: "Admin Portal", icon: ShieldCheck }]
+      : []),
+  ];
+
+  const mobileNav = nav.filter((i) => i.label !== "Departments" && i.label !== "Analytics");
 
   const isActive = (item: (typeof nav)[number]) =>
     item.exact ? pathname === item.to : pathname.startsWith(item.to);
@@ -200,7 +205,12 @@ export function StaffShell({ children }: { children: ReactNode }) {
             <Button variant="outline" size="sm" className="hidden rounded-2xl sm:inline-flex" asChild>
               <Link to="/">Kiosk view</Link>
             </Button>
-            <span className="hidden text-sm font-medium lg:block">{user?.name ?? "Staff"}</span>
+            <div className="hidden lg:flex items-center gap-2">
+              <span className="text-sm font-medium">{user?.name ?? "Staff"}</span>
+              <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-extrabold text-primary">
+                {user?.role ?? "STAFF"}
+              </span>
+            </div>
             <Button
               variant="ghost"
               size="icon"

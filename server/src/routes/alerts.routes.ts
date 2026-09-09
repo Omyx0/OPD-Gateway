@@ -4,6 +4,7 @@ import { authorize } from "../middleware/authorize.js";
 import { sendSuccess } from "../utils/response.js";
 import { supabaseAdmin } from "../config/supabase.js";
 import { NotFoundError } from "../utils/errors.js";
+import { emitAlertNew } from "../utils/socket.js";
 
 const router = Router();
 
@@ -46,7 +47,7 @@ router.post(
 
       if (error) throw error;
 
-      // TODO: Emit Socket.io event — alert:new
+      emitAlertNew(req.app, data);
 
       sendSuccess(res, data, 201);
     } catch (err) {

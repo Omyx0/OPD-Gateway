@@ -5,7 +5,10 @@ import { validate } from "../middleware/validate.js";
 import { sendSuccess } from "../utils/response.js";
 import { supabaseAdmin } from "../config/supabase.js";
 import { triageModel } from "../config/gemini.js";
+import { env } from "../config/env.js";
 import { NotFoundError } from "../utils/errors.js";
+import { logAudit } from "../utils/audit.js";
+import { emitQueueNewTicket, emitAlertNew } from "../utils/socket.js";
 import { z } from "zod";
 import { logger } from "../utils/logger.js";
 
@@ -318,7 +321,7 @@ Triage priority rules:
         logger.error("Failed to save triage assessment", { error: triageError });
       }
 
-      // 4. Update queue ticket priority based on triage result
+      // 4. Update or auto-create queue ticket based on triage result
       const { data: queueTicket } = await supabaseAdmin
         .from("queue_tickets")
         .select("id")
@@ -326,7 +329,7 @@ Triage priority rules:
         .neq("status", "COMPLETED")
         .neq("status", "SKIPPED")
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (queueTicket && assessment.priority) {
         await supabaseAdmin
@@ -338,9 +341,81 @@ Triage priority rules:
           .eq("id", queueTicket.id);
         
         logger.info(`Updated queue ticket ${queueTicket.id} priority to ${assessment.priority}`);
+      } else if (!queueTicket && visit) {
+        // Auto-generate queue ticket so patient has an active token immediately
+        const deptId = visit.department_id;
+        const { count } = await supabaseAdmin
+          .from("queue_tickets")
+          .select("*", { count: "exact", head: true })
+          .eq("department_id", deptId);
+
+        const token = `A-${String((count ?? 0) + 101)}`;
+        const { data: newTicket } = await supabaseAdmin
+          .from("queue_tickets")
+          .insert({
+            visit_id: visitId,
+            department_id: deptId,
+            token,
+            priority: assessment.priority || "GREEN",
+            status: "WAITING",
+          })
+          .select("id, token, priority, status, arrival_time")
+          .single();
+
+        if (newTicket) {
+          emitQueueNewTicket(req.app, newTicket);
+          logger.info(`Auto-created queue ticket ${newTicket.token} for visit ${visitId}`);
+        }
       }
 
-      // 5. Log AI interaction
+      // Auto-raise emergency alert if RED priority
+      if (assessment.priority === "RED") {
+        const alertMsg = `Emergency triage flag: ${(assessment.redFlags || []).join(", ") || "Critical vitals/symptoms detected"}`;
+        const { data: newAlert } = await supabaseAdmin
+          .from("alerts")
+          .insert({
+            visit_id: visitId,
+            type: "RED_PRIORITY_PATIENT",
+            message: alertMsg,
+            status: "ACTIVE",
+          })
+          .select()
+          .single();
+
+        if (newAlert) {
+          emitAlertNew(req.app, newAlert);
+          logger.warn("Emergency alert raised for RED priority patient", { alertId: newAlert.id, visitId });
+        }
+      }
+
+      // 5. Call ML service for additional triage prediction
+      let mlResult: any = null;
+      try {
+        const mlResponse = await fetch(`${env.ML_SERVICE_URL}/predict`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chief_complaint: symptomList || "general checkup",
+            temperature: null,
+            heartrate: null,
+            resprate: null,
+            o2sat: null,
+            sbp: null,
+            dbp: null,
+            pain: null,
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (mlResponse.ok) {
+          mlResult = await mlResponse.json();
+          logger.info("ML service prediction received", { mlPriority: mlResult.final_priority });
+        }
+      } catch (mlErr) {
+        logger.warn("ML service call failed (non-blocking)", { error: mlErr });
+      }
+
+      // 6. Log AI interaction
       await supabaseAdmin.from("ai_interactions").insert({
         visit_id: visitId,
         provider: "GEMINI",
@@ -349,6 +424,14 @@ Triage priority rules:
         input_type: "TEXT",
         success: true,
         latency_ms: latencyMs,
+      });
+
+      await logAudit({
+        actorUserId: req.user!.id,
+        action: "TRIAGE_ASSESSED",
+        entityType: "visit",
+        entityId: visitId,
+        metadata: { priority: assessment.priority, mlPriority: mlResult?.final_priority },
       });
 
       sendSuccess(res, {
@@ -361,6 +444,13 @@ Triage priority rules:
         recommendedDepartment: assessment.recommendedDepartment,
         reasoning: assessment.reasoning || "",
         additionalNotes: assessment.additionalNotes || "",
+        mlResult: mlResult ? {
+          mlPriority: mlResult.ml_priority,
+          finalPriority: mlResult.final_priority,
+          confidence: mlResult.confidence,
+          safetyOverride: mlResult.safety_override,
+          reasons: mlResult.reasons,
+        } : null,
       });
     } catch (err) {
       logger.error("Triage assessment failed", { error: err });

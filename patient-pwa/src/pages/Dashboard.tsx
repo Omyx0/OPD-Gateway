@@ -3,9 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   ChevronRight, Stethoscope, Activity, FilePlus2, Loader2, Sparkles, 
-  Clock, MapPin, Phone, RefreshCw, AlertCircle, CheckCircle2 
+  Clock, MapPin, Phone, RefreshCw, AlertCircle, CheckCircle2, Compass 
 } from 'lucide-react';
 import { API_URL } from '../lib/api';
+import HospitalMapModal from '../components/HospitalMapModal';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const [activeTicket, setActiveTicket] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     fetchActiveTicket();
@@ -241,6 +243,15 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Hospital Indoor Navigation Button */}
+      <button
+        onClick={() => setShowMap(true)}
+        className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-800 font-bold text-xs hover:bg-teal-100 active:scale-[0.99] transition-all shadow-2xs"
+      >
+        <Compass size={16} className="text-teal-600" />
+        <span>View Hospital Indoor Map & Clinic Directions</span>
+      </button>
+
       {/* Stepper / Timeline Card */}
       <div className="glass-panel rounded-3xl p-5 space-y-4 shadow-sm">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Care Progress</h3>
@@ -306,6 +317,14 @@ export default function Dashboard() {
           <span>View Records</span>
         </button>
       </div>
+
+      {/* Indoor Navigation Modal */}
+      <HospitalMapModal
+        isOpen={showMap}
+        onClose={() => setShowMap(false)}
+        targetRoom="Room 104 (OPD Clinic)"
+        departmentName={activeTicket?.departments?.name || "General Medicine"}
+      />
     </div>
   );
 }

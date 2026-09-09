@@ -21,8 +21,10 @@ import { Route as SymptomsRouteImport } from "./routes/symptoms"
 import { Route as TicketRouteImport } from "./routes/ticket"
 import { Route as TriageRouteImport } from "./routes/triage"
 import { Route as StaffIndexRouteImport } from "./routes/staff.index"
+import { Route as StaffAdminRouteImport } from "./routes/staff.admin"
 import { Route as StaffAlertsRouteImport } from "./routes/staff.alerts"
 import { Route as StaffAnalyticsRouteImport } from "./routes/staff.analytics"
+import { Route as StaffConsultationRouteImport } from "./routes/staff.consultation"
 import { Route as StaffDepartmentsRouteImport } from "./routes/staff.departments"
 import { Route as StaffPatientsRouteImport } from "./routes/staff.patients"
 import { Route as StaffQueueRouteImport } from "./routes/staff.queue"
@@ -90,6 +92,11 @@ const StaffIndexRoute = StaffIndexRouteImport.update({
   path: "/",
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffAdminRoute = StaffAdminRouteImport.update({
+  id: "/admin",
+  path: "/admin",
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffAlertsRoute = StaffAlertsRouteImport.update({
   id: "/alerts",
   path: "/alerts",
@@ -98,6 +105,11 @@ const StaffAlertsRoute = StaffAlertsRouteImport.update({
 const StaffAnalyticsRoute = StaffAnalyticsRouteImport.update({
   id: "/analytics",
   path: "/analytics",
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffConsultationRoute = StaffConsultationRouteImport.update({
+  id: "/consultation",
+  path: "/consultation",
   getParentRoute: () => StaffRoute,
 } as any)
 const StaffDepartmentsRoute = StaffDepartmentsRouteImport.update({
@@ -143,8 +155,10 @@ export interface FileRoutesByFullPath {
   "/symptoms": typeof SymptomsRoute
   "/ticket": typeof TicketRoute
   "/triage": typeof TriageRoute
+  "/staff/admin": typeof StaffAdminRoute
   "/staff/alerts": typeof StaffAlertsRoute
   "/staff/analytics": typeof StaffAnalyticsRoute
+  "/staff/consultation": typeof StaffConsultationRoute
   "/staff/departments": typeof StaffDepartmentsRoute
   "/staff/patients": typeof StaffPatientsRouteWithChildren
   "/staff/queue": typeof StaffQueueRoute
@@ -164,8 +178,10 @@ export interface FileRoutesByTo {
   "/symptoms": typeof SymptomsRoute
   "/ticket": typeof TicketRoute
   "/triage": typeof TriageRoute
+  "/staff/admin": typeof StaffAdminRoute
   "/staff/alerts": typeof StaffAlertsRoute
   "/staff/analytics": typeof StaffAnalyticsRoute
+  "/staff/consultation": typeof StaffConsultationRoute
   "/staff/departments": typeof StaffDepartmentsRoute
   "/staff/queue": typeof StaffQueueRoute
   "/staff": typeof StaffIndexRoute
@@ -186,8 +202,10 @@ export interface FileRoutesById {
   "/symptoms": typeof SymptomsRoute
   "/ticket": typeof TicketRoute
   "/triage": typeof TriageRoute
+  "/staff/admin": typeof StaffAdminRoute
   "/staff/alerts": typeof StaffAlertsRoute
   "/staff/analytics": typeof StaffAnalyticsRoute
+  "/staff/consultation": typeof StaffConsultationRoute
   "/staff/departments": typeof StaffDepartmentsRoute
   "/staff/patients": typeof StaffPatientsRouteWithChildren
   "/staff/queue": typeof StaffQueueRoute
@@ -210,8 +228,10 @@ export interface FileRouteTypes {
     | "/symptoms"
     | "/ticket"
     | "/triage"
+    | "/staff/admin"
     | "/staff/alerts"
     | "/staff/analytics"
+    | "/staff/consultation"
     | "/staff/departments"
     | "/staff/patients"
     | "/staff/queue"
@@ -231,8 +251,10 @@ export interface FileRouteTypes {
     | "/symptoms"
     | "/ticket"
     | "/triage"
+    | "/staff/admin"
     | "/staff/alerts"
     | "/staff/analytics"
+    | "/staff/consultation"
     | "/staff/departments"
     | "/staff/queue"
     | "/staff"
@@ -252,8 +274,10 @@ export interface FileRouteTypes {
     | "/symptoms"
     | "/ticket"
     | "/triage"
+    | "/staff/admin"
     | "/staff/alerts"
     | "/staff/analytics"
+    | "/staff/consultation"
     | "/staff/departments"
     | "/staff/patients"
     | "/staff/queue"
@@ -363,6 +387,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof StaffIndexRouteImport
       parentRoute: typeof StaffRoute
     }
+    "/staff/admin": {
+      id: "/staff/admin"
+      path: "/admin"
+      fullPath: "/staff/admin"
+      preLoaderRoute: typeof StaffAdminRouteImport
+      parentRoute: typeof StaffRoute
+    }
     "/staff/alerts": {
       id: "/staff/alerts"
       path: "/alerts"
@@ -375,6 +406,13 @@ declare module "@tanstack/react-router" {
       path: "/analytics"
       fullPath: "/staff/analytics"
       preLoaderRoute: typeof StaffAnalyticsRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    "/staff/consultation": {
+      id: "/staff/consultation"
+      path: "/consultation"
+      fullPath: "/staff/consultation"
+      preLoaderRoute: typeof StaffConsultationRouteImport
       parentRoute: typeof StaffRoute
     }
     "/staff/departments": {
@@ -439,8 +477,10 @@ const StaffPatientsRouteWithChildren = StaffPatientsRoute._addFileChildren(
 )
 
 interface StaffRouteChildren {
+  StaffAdminRoute: typeof StaffAdminRoute
   StaffAlertsRoute: typeof StaffAlertsRoute
   StaffAnalyticsRoute: typeof StaffAnalyticsRoute
+  StaffConsultationRoute: typeof StaffConsultationRoute
   StaffDepartmentsRoute: typeof StaffDepartmentsRoute
   StaffPatientsRoute: typeof StaffPatientsRouteWithChildren
   StaffQueueRoute: typeof StaffQueueRoute
@@ -448,8 +488,10 @@ interface StaffRouteChildren {
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
+  StaffAdminRoute: StaffAdminRoute,
   StaffAlertsRoute: StaffAlertsRoute,
   StaffAnalyticsRoute: StaffAnalyticsRoute,
+  StaffConsultationRoute: StaffConsultationRoute,
   StaffDepartmentsRoute: StaffDepartmentsRoute,
   StaffPatientsRoute: StaffPatientsRouteWithChildren,
   StaffQueueRoute: StaffQueueRoute,
