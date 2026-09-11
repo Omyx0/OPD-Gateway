@@ -1,10 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  Outlet,
-  Link,
-  createRootRouteWithContext,
-  useRouter,
-} from "@tanstack/react-router";
+import { Outlet, Link, createRootRouteWithContext, useRouter } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
 import { KioskSessionProvider } from "@/state/kiosk-session";
@@ -13,7 +8,6 @@ import { ConnectionProvider } from "@/state/connection";
 import { ConnectionBanner } from "@/components/common/ConnectionBanner";
 import { StaffStoreProvider } from "@/state/staff-store";
 import { NotificationsProvider } from "@/state/notifications";
-import { StaffAuthProvider } from "@/state/staff-auth";
 
 function NotFoundComponent() {
   return (
@@ -86,13 +80,11 @@ function RootComponent() {
       <ConnectionProvider>
         <StaffStoreProvider>
           <NotificationsProvider>
-            <StaffAuthProvider>
-              <KioskSessionProvider>
-                <ConnectionBanner />
-                <Outlet />
-                <Toaster position="top-right" richColors />
-              </KioskSessionProvider>
-            </StaffAuthProvider>
+            <KioskSessionProvider>
+              <ConnectionBanner />
+              <Outlet />
+              <Toaster position="top-right" richColors />
+            </KioskSessionProvider>
           </NotificationsProvider>
         </StaffStoreProvider>
       </ConnectionProvider>

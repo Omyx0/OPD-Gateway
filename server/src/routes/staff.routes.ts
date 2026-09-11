@@ -28,18 +28,26 @@ router.post("/provision", authenticate, async (req, res, next) => {
       { onConflict: "id" }
     );
 
-    // 2. Upsert STAFF role
-    await supabaseAdmin.from("user_roles").upsert(
-      {
-        user_id: userId,
-        role: "STAFF",
-      },
-      { onConflict: "user_id,role" }
-    );
+    // 2. Preserve a seeded role; new users default to STAFF.
+    const { data: existingRole, error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (roleError) throw roleError;
+
+    if (!existingRole) {
+      const { error: insertRoleError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: userId, role: "STAFF" });
+
+      if (insertRoleError) throw insertRoleError;
+    }
 
     logger.info(`Staff role provisioned for user ${userId} (${email})`);
 
-    sendSuccess(res, { role: "STAFF", provisioned: true });
+    sendSuccess(res, { role: existingRole?.role ?? "STAFF", provisioned: true });
   } catch (err) {
     next(err);
   }
