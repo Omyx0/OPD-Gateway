@@ -3,7 +3,11 @@ import { useState } from "react";
 import {
   ArrowRight,
   ClipboardList,
+  Clock3,
+  Info,
   MessageSquareText,
+  PhoneCall,
+  Search,
   Ticket,
   ShieldCheck,
   Languages,
@@ -22,7 +26,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useKioskSession } from "@/state/kiosk-session";
-import { DemoScenarioBar } from "@/components/common/DemoScenarioBar";
 import { getCopy } from "@/mock/i18n";
 import kioskHero from "@/assets/kiosk-hero.png";
 
@@ -96,7 +99,7 @@ function WelcomePage() {
 
           <p className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
             <ShieldCheck className="size-4" aria-hidden />
-            {t.demoNote}
+            Your information is used only to organise today’s OPD visit.
           </p>
         </div>
 
@@ -139,10 +142,58 @@ function WelcomePage() {
             })}
           </Card>
         </div>
-
       </div>
 
-      <DemoScenarioBar />
+      <section className="mt-10 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card className="card-premium p-6 sm:p-7">
+          <div className="flex items-start gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Info className="size-5" aria-hidden />
+            </span>
+            <div>
+              <h2 className="text-lg font-semibold">Before you join the queue</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Keep your photo ID, mobile number and any previous prescription ready. A staff
+                member can help if you do not have an ID.
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <ArrivalItem icon={ClipboardList} title="Register" text="Confirm your details" />
+            <ArrivalItem icon={MessageSquareText} title="Tell us" text="Share your symptoms" />
+            <ArrivalItem icon={Ticket} title="Wait safely" text="Follow your token" />
+          </div>
+        </Card>
+
+        <Card className="card-premium p-6 sm:p-7">
+          <p className="text-xs font-semibold uppercase tracking-widest text-teal">Today at OPD</p>
+          <div className="mt-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <Clock3 className="size-5 text-primary" aria-hidden />
+              <div>
+                <p className="font-semibold">Registration desk</p>
+                <p className="text-sm text-muted-foreground">08:00 AM – 04:00 PM</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Search className="size-5 text-primary" aria-hidden />
+              <div>
+                <p className="font-semibold">Queue updates</p>
+                <p className="text-sm text-muted-foreground">Your token is shown after triage</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <PhoneCall className="size-5 text-primary" aria-hidden />
+              <div>
+                <p className="font-semibold">Need assistance?</p>
+                <p className="text-sm text-muted-foreground">
+                  Ask the help desk or call 1800-419-0022
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </section>
 
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent>
@@ -160,5 +211,23 @@ function WelcomePage() {
         </DialogContent>
       </Dialog>
     </KioskShell>
+  );
+}
+
+function ArrivalItem({
+  icon: Icon,
+  title,
+  text,
+}: {
+  icon: typeof ClipboardList;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/70 bg-surface p-4">
+      <Icon className="size-5 text-primary" aria-hidden />
+      <p className="mt-3 font-semibold">{title}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+    </div>
   );
 }

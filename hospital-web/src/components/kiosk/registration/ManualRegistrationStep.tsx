@@ -141,8 +141,8 @@ export function ManualRegistrationStep({
       <h1 className="kiosk-heading">{walkIn ? "Walk-in registration" : "Enter your details"}</h1>
       <p className="kiosk-sub mt-3 text-muted-foreground">
         {walkIn
-          ? "We only need a name and a mobile number to add you to the queue."
-          : "Fields marked with * are required. Nothing is sent anywhere — this is a demonstration."}
+          ? "We need your name, age, gender and mobile number to create a safe walk-in record. Staff can add your ID later."
+          : "Fields marked with * are required. Please check your details before continuing."}
       </p>
 
       {errorCount > 0 ? (
