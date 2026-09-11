@@ -53,10 +53,10 @@ When signing in on the deployed links, use the following credentials or register
 
 | Role | Email | Password | Access Area |
 | :--- | :--- | :--- | :--- |
-| **Admin** | `admin@hospital.com` | `demo123` | `https://opd-gateway-server.vercel.app/staff/admin` |
-| **Doctor** | `doctor.cardio@hospital.com` | `demo123` | `https://opd-gateway-server.vercel.app/staff/consultation` |
-| **Staff** | `staff.reception@hospital.com` | `demo123` | `https://opd-gateway-server.vercel.app/staff/queue` |
-| **Patient** | `patient.live@gmail.com` | `demo123` | `https://opd-gateway.vercel.app/dashboard` |
+| **Admin** | `admin@opd.com` | `demo123` | `https://opd-gateway-server.vercel.app/staff/admin` |
+| **Doctor** | `doctor@opd.com` | `demo123` | `https://opd-gateway-server.vercel.app/staff/consultation` |
+| **Staff** | `staff@opd.com` | `demo123` | `https://opd-gateway-server.vercel.app/staff/queue` |
+| **Patient** | `patient@opd.com` | `demo123` | `https://opd-gateway.vercel.app/dashboard` |
 
 ---
 
@@ -93,12 +93,12 @@ When signing in on the deployed links, use the following credentials or register
 
 1. Open **`https://opd-gateway-server.vercel.app/login`**.
 2. Sign in with:
-   - Email: `admin@hospital.com`
+   - Email: `admin@opd.com`
    - Password: `demo123`
 3. Notice the **ADMIN** badge next to the user name in the top header.
 4. Click **"Admin Portal"** in the sidebar (route: `/staff/admin`).
 5. **Test Doctor Multi-Specialization Configuration**:
-   - In the **"Doctor Specializations & Units"** tab, locate doctor `doctor.cardio@hospital.com`.
+   - In the **"Doctor Specializations & Units"** tab, locate doctor `doctor@opd.com`.
    - Click **"Configure Units & Specializations"**.
    - Check multiple departments: e.g. **"Cardiology"** AND **"General Practice"**.
    - Click **"Save Specializations"**.
@@ -114,7 +114,7 @@ When signing in on the deployed links, use the following credentials or register
 
 ### Phase 3: Staff Reception & Live Queue (Staff Role)
 
-1. Sign in with `staff.reception@hospital.com` on **`https://opd-gateway-server.vercel.app`**.
+1. Sign in with `staff@opd.com` on **`https://opd-gateway-server.vercel.app`**.
 2. Notice the **STAFF** badge in the header.
 3. **Test Walk-In Patient Registration (`/staff/patients/new`)**:
    - Click **"Patients"** → **"New Registration"**.
@@ -141,7 +141,7 @@ When signing in on the deployed links, use the following credentials or register
 
 ### Phase 4: Clinician Consultation Portal (Doctor Role)
 
-1. Sign in with `doctor.cardio@hospital.com` on **`https://opd-gateway-server.vercel.app`**.
+1. Sign in with `doctor@opd.com` on **`https://opd-gateway-server.vercel.app`**.
 2. Notice the **DOCTOR** badge in the header.
 3. Click **"Consultations"** in the sidebar (route: `/staff/consultation`).
 4. **Verify Multi-Department Queue**:
@@ -173,7 +173,7 @@ When signing in on the deployed links, use the following credentials or register
 ### Phase 5: Patient Mobile App & Indoor Map (Patient PWA)
 
 1. Open **`https://opd-gateway.vercel.app`** on your smartphone or in Chrome DevTools with Mobile View enabled (iPhone 14 / Pixel 7 preset).
-2. Sign in or register as `patient.live@gmail.com` with password `demo123`.
+2. Sign in or register as `patient@opd.com` with password `demo123`.
 3. **Test AI Symptom Check-In (`/dashboard/symptoms`)**:
    - Tap **"Start OPD Check-In"**.
    - Select symptoms: *"Chest Discomfort"*, *"Shortness of Breath"*.

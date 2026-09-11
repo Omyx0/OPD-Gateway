@@ -34,7 +34,12 @@ def load_model():
     if not MODEL_PATH.exists():
         raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
     _model = joblib.load(MODEL_PATH)
-    print(f"✅ ML model loaded from {MODEL_PATH}")
+    # Models trained with newer scikit-learn versions may omit this legacy
+    # LogisticRegression attribute while older runtimes still read it.
+    classifier = getattr(_model, "named_steps", {}).get("classifier")
+    if classifier is not None and not hasattr(classifier, "multi_class"):
+        classifier.multi_class = "auto"
+    print(f"ML model loaded from {MODEL_PATH}")
 
 
 @asynccontextmanager
@@ -43,7 +48,7 @@ async def lifespan(app: FastAPI):
     try:
         load_model()
     except Exception as e:
-        print(f"⚠️ Failed to load ML model: {e}")
+        print(f"Failed to load ML model: {e}")
         print("   The /predict endpoint will return errors until model is available.")
     yield
 
