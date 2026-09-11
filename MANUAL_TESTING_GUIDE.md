@@ -57,10 +57,10 @@ The system enforces Role-Based Access Control (RBAC) across four roles:
 
 | Role | Test Email | Password | Access Rights |
 | :--- | :--- | :--- | :--- |
-| **ADMIN** | `admin@hospital.com` | `demo123` | Full access, user roles, doctor specializations, audit logs |
-| **DOCTOR** | `doctor.cardio@hospital.com` | `demo123` | Consultation workspace, multi-department queue, SOAP notes |
-| **STAFF** | `staff.reception@hospital.com` | `demo123` | Walk-in registration, general queue management, alerts |
-| **PATIENT** | `patient.test@gmail.com` | `demo123` | Patient PWA, self-triage, live token tracking, indoor map |
+| **ADMIN** | `admin@opd.com` | `demo123` | Full access, user roles, doctor specializations, audit logs |
+| **DOCTOR** | `doctor@opd.com` | `demo123` | Consultation workspace, multi-department queue, SOAP notes |
+| **STAFF** | `staff@opd.com` | `demo123` | Walk-in registration, general queue management, alerts |
+| **PATIENT** | `patient@opd.com` | `demo123` | Patient PWA, self-triage, live token tracking, indoor map |
 
 > **Tip**: If logging in for the first time with a new email, the system automatically provisions the profile based on email convention (`admin.*` → ADMIN, `doctor.*` → DOCTOR, others → STAFF). Roles can also be modified in the Admin Portal.
 
