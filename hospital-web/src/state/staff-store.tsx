@@ -27,6 +27,8 @@ interface StaffStore {
   alerts: EmergencyAlert[];
   departmentFilter: string;
   setDepartmentFilter: (value: string) => void;
+  hideSeed: boolean;
+  setHideSeed: (hide: boolean) => void;
   setStatus: (id: string, status: QueueStatus) => void;
   reassign: (id: string, department: string) => void;
   acknowledgeAlert: (id: string) => void;
@@ -38,6 +40,7 @@ interface StaffStore {
   /** Waiting patients that would be seen before a newly arrived priority. */
   positionForPriority: (priority: Priority) => number;
   resetQueue: () => void;
+  seedRealtime: () => Promise<void>;
   recentlyUpdated: Record<string, number>;
   refreshQueue: () => Promise<void>;
   isLoading: boolean;
@@ -55,6 +58,14 @@ function mapBackendTicket(q: any): QueueEntry {
   const waitMinutes = q.arrival_time
     ? Math.max(0, Math.floor((Date.now() - new Date(q.arrival_time).getTime()) / 60000))
     : 0;
+
+  const isSeed = Boolean(
+    q.is_seed ||
+    q.visits?.is_seed ||
+    q.token?.startsWith("S-") ||
+    q.token?.startsWith("SEED-") ||
+    patient?.patient_code?.startsWith("SEED-")
+  );
 
   return {
     id: q.id,
@@ -76,14 +87,16 @@ function mapBackendTicket(q: any): QueueEntry {
     symptomsSummary: q.visits?.raw_symptoms_text || "OPD intake examination",
     triageSummary: `${q.priority || "GREEN"} priority clinical triage`,
     flags: q.priority === "RED" ? ["Critical", "Immediate Attention"] : [],
+    isSeed,
   };
 }
 
 export function StaffStoreProvider({ children }: { children: ReactNode }) {
   const { user } = useStaffAuth();
-  const [queue, setQueue] = useState<QueueEntry[]>(queueService.getQueue());
-  const [alerts, setAlerts] = useState<EmergencyAlert[]>(alertService.getAlerts());
+  const [queue, setQueue] = useState<QueueEntry[]>([]);
+  const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [hideSeed, setHideSeed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [recentlyUpdated, setRecentlyUpdated] = useState<Record<string, number>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -104,17 +117,20 @@ export function StaffStoreProvider({ children }: { children: ReactNode }) {
   const refreshQueue = useCallback(async () => {
     if (!user?.token) return;
     try {
+      setIsLoading(true);
       const res = await fetch(`${API_URL}/queue`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       if (!res.ok) return;
       const json = await res.json();
-      if (Array.isArray(json.data) && json.data.length > 0) {
+      if (Array.isArray(json.data)) {
         const mapped = json.data.map(mapBackendTicket);
         setQueue(mapped);
       }
     } catch (err) {
-      console.warn("Using offline queue data", err);
+      console.warn("Error fetching live queue:", err);
+    } finally {
+      setIsLoading(false);
     }
   }, [user?.token]);
 
@@ -127,7 +143,7 @@ export function StaffStoreProvider({ children }: { children: ReactNode }) {
       });
       if (!res.ok) return;
       const json = await res.json();
-      if (Array.isArray(json.data) && json.data.length > 0) {
+      if (Array.isArray(json.data)) {
         const mapped: EmergencyAlert[] = json.data.map((a: any) => ({
           id: a.id,
           token: a.queue_tickets?.token || "ALERT",
@@ -175,7 +191,7 @@ export function StaffStoreProvider({ children }: { children: ReactNode }) {
       flash(ticket.id);
     });
 
-    const unsubAlert = onAlertNew((alert) => {
+    const unsubAlert = onAlertNew((_alert) => {
       void refreshAlerts();
     });
 
@@ -265,6 +281,25 @@ export function StaffStoreProvider({ children }: { children: ReactNode }) {
     [queue, flash]
   );
 
+  const seedRealtime = useCallback(async () => {
+    if (!user?.token) return;
+    try {
+      const res = await fetch(`${API_URL}/admin/seed-realtime-queue`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+      if (res.ok) {
+        await refreshQueue();
+        await refreshAlerts();
+      }
+    } catch (e) {
+      console.error("Failed to seed realtime queue", e);
+    }
+  }, [user?.token, refreshQueue, refreshAlerts]);
+
   const positionOf = useCallback((token: string) => queueService.positionOf(queue, token), [queue]);
 
   const positionForPriority = useCallback(
@@ -273,9 +308,9 @@ export function StaffStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const resetQueue = useCallback(() => {
-    setQueue(queueService.getQueue());
-    setAlerts(alertService.getAlerts());
-  }, []);
+    void refreshQueue();
+    void refreshAlerts();
+  }, [refreshQueue, refreshAlerts]);
 
   const value = useMemo<StaffStore>(
     () => ({
@@ -283,6 +318,8 @@ export function StaffStoreProvider({ children }: { children: ReactNode }) {
       alerts,
       departmentFilter,
       setDepartmentFilter,
+      hideSeed,
+      setHideSeed,
       setStatus,
       reassign,
       acknowledgeAlert,
@@ -292,6 +329,7 @@ export function StaffStoreProvider({ children }: { children: ReactNode }) {
       positionOf,
       positionForPriority,
       resetQueue,
+      seedRealtime,
       refreshQueue,
       isLoading,
     }),
@@ -299,6 +337,7 @@ export function StaffStoreProvider({ children }: { children: ReactNode }) {
       queue,
       alerts,
       departmentFilter,
+      hideSeed,
       setStatus,
       reassign,
       acknowledgeAlert,
@@ -308,6 +347,7 @@ export function StaffStoreProvider({ children }: { children: ReactNode }) {
       positionOf,
       positionForPriority,
       resetQueue,
+      seedRealtime,
       refreshQueue,
       isLoading,
     ]

@@ -270,4 +270,247 @@ router.put(
   }
 );
 
+// ── Verification Management ──────────────────────────────────────────
+
+/**
+ * GET /admin/verifications — List all pending and reviewed verification requests
+ */
+router.get("/verifications", authenticate, authorize("ADMIN"), async (req, res, next) => {
+  try {
+    const status = req.query.status as string || "PENDING";
+
+    // Query profiles with user_roles and doctor details
+    let query = supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, email, is_active, created_at, verification_status, verification_details, user_roles(role)")
+      .order("created_at", { ascending: false });
+
+    if (status === "PENDING") {
+      // Return users where is_active is false OR verification_status is PENDING
+      query = query.or("is_active.eq.false,verification_status.eq.PENDING");
+    } else if (status === "APPROVED") {
+      query = query.eq("verification_status", "APPROVED").eq("is_active", true);
+    } else if (status === "REJECTED") {
+      query = query.eq("verification_status", "REJECTED");
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Filter out PATIENT users — only show prospective STAFF or DOCTOR
+    const prospectiveStaff = (data ?? []).filter((u: any) => {
+      const role = u.user_roles?.[0]?.role;
+      const requestedRole = u.verification_details?.requestedRole;
+      return role === "STAFF" || role === "DOCTOR" || requestedRole === "STAFF" || requestedRole === "DOCTOR";
+    });
+
+    sendSuccess(res, prospectiveStaff);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /admin/verifications/:userId/approve — Approve a staff/doctor verification request
+ */
+router.post(
+  "/verifications/:userId/approve",
+  authenticate,
+  authorize("ADMIN"),
+  async (req, res, next) => {
+    try {
+      const userId = req.params.userId as string;
+      const { assignedRole, departmentId } = req.body;
+
+      // 1. Get user profile
+      const { data: profile, error: pErr } = await supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (pErr || !profile) {
+        throw new NotFoundError("Applicant profile not found.");
+      }
+
+      const role = assignedRole || profile.verification_details?.requestedRole || "STAFF";
+
+      // 2. Update profile to APPROVED and is_active = true
+      try {
+        await supabaseAdmin
+          .from("profiles")
+          .update({
+            verification_status: "APPROVED",
+            is_active: true,
+            verification_details: {
+              ...(profile.verification_details || {}),
+              approvedAt: new Date().toISOString(),
+              approvedBy: req.user!.id,
+            },
+          })
+          .eq("id", userId);
+      } catch {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ is_active: true })
+          .eq("id", userId);
+      }
+
+      // 3. Assign role in user_roles
+      await supabaseAdmin.from("user_roles").delete().eq("user_id", userId);
+      await supabaseAdmin.from("user_roles").insert({ user_id: userId, role });
+
+      // 4. If role is DOCTOR, activate/create doctor profile and link department
+      if (role === "DOCTOR") {
+        let doctorId: string;
+        const { data: existingDoc } = await supabaseAdmin
+          .from("doctors")
+          .select("id")
+          .eq("profile_id", userId)
+          .maybeSingle();
+
+        if (existingDoc) {
+          doctorId = existingDoc.id;
+          await supabaseAdmin
+            .from("doctors")
+            .update({
+              is_active: true,
+              department_id: departmentId || undefined,
+            })
+            .eq("id", doctorId);
+        } else {
+          const { data: newDoc, error: dErr } = await supabaseAdmin
+            .from("doctors")
+            .insert({
+              profile_id: userId,
+              department_id: departmentId || null,
+              specialization: profile.verification_details?.specialization || "General Practice",
+              is_active: true,
+            })
+            .select("id")
+            .single();
+          if (dErr) throw dErr;
+          doctorId = newDoc.id;
+        }
+
+        if (departmentId && doctorId) {
+          await supabaseAdmin
+            .from("doctor_departments")
+            .upsert(
+              { doctor_id: doctorId, department_id: departmentId, is_primary: true },
+              { onConflict: "doctor_id,department_id" }
+            );
+        }
+      }
+
+      // 5. Send approval notification to the user
+      await supabaseAdmin.from("notifications").insert({
+        recipient_user_id: userId,
+        type: "VERIFICATION_APPROVED",
+        title: "Account Approved & Verified!",
+        message: `Welcome to Smart OPD! Your ${role} account has been verified by hospital administration. You now have full dashboard access.`,
+        is_read: false,
+      });
+
+      // 6. Audit log
+      await logAudit({
+        actorUserId: req.user!.id,
+        action: "STAFF_VERIFIED",
+        entityType: "user",
+        entityId: userId,
+        metadata: { role, departmentId },
+      });
+
+      sendSuccess(res, { userId, role, status: "APPROVED", message: "User verified and approved successfully." });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /admin/verifications/:userId/reject — Reject a staff/doctor verification request
+ */
+router.post(
+  "/verifications/:userId/reject",
+  authenticate,
+  authorize("ADMIN"),
+  async (req, res, next) => {
+    try {
+      const userId = req.params.userId as string;
+      const { reason } = req.body;
+
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (!profile) {
+        throw new NotFoundError("Applicant profile not found.");
+      }
+
+      try {
+        await supabaseAdmin
+          .from("profiles")
+          .update({
+            verification_status: "REJECTED",
+            is_active: false,
+            verification_details: {
+              ...(profile.verification_details || {}),
+              rejectedAt: new Date().toISOString(),
+              rejectedBy: req.user!.id,
+              rejectionReason: reason || "Credentials could not be verified.",
+            },
+          })
+          .eq("id", userId);
+      } catch {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ is_active: false })
+          .eq("id", userId);
+      }
+
+      await supabaseAdmin.from("notifications").insert({
+        recipient_user_id: userId,
+        type: "VERIFICATION_REJECTED",
+        title: "Account Verification Update",
+        message: `Your account verification was not approved. Reason: ${reason || "Credentials could not be verified by administration."}`,
+        is_read: false,
+      });
+
+      await logAudit({
+        actorUserId: req.user!.id,
+        action: "STAFF_VERIFICATION_REJECTED",
+        entityType: "user",
+        entityId: userId,
+        metadata: { reason },
+      });
+
+      sendSuccess(res, { userId, status: "REJECTED", message: "Application rejected." });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /admin/seed-realtime-queue — Trigger dynamic queue seed from Admin UI
+ */
+router.post(
+  "/seed-realtime-queue",
+  authenticate,
+  authorize("ADMIN"),
+  async (_req, res, next) => {
+    try {
+      const { seedRealtimeQueue } = await import("../utils/seedRealtimeQueue.js");
+      const result = await seedRealtimeQueue();
+      sendSuccess(res, { ...result, message: "Real-time queue refreshed with dynamic seeded data." });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 export default router;
+

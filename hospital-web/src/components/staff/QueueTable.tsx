@@ -333,7 +333,19 @@ function QueueRow({
         isClosed && "opacity-70",
       )}
     >
-      <TableCell className="whitespace-nowrap font-semibold tabular-nums">{e.token}</TableCell>
+      <TableCell className="whitespace-nowrap font-semibold tabular-nums">
+        <div className="flex items-center gap-1.5">
+          <span>{e.token}</span>
+          {e.isSeed && (
+            <span
+              title="Seeded test patient for real-time simulation"
+              className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 shadow-xs"
+            >
+              [S] Seed
+            </span>
+          )}
+        </div>
+      </TableCell>
       <TableCell>
         <span className="block whitespace-nowrap font-medium">{e.patient.name}</span>
         <span className="block text-xs text-muted-foreground">

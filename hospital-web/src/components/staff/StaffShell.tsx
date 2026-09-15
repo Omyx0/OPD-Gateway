@@ -22,6 +22,7 @@ import { useStaffStore } from "@/state/staff-store";
 import { useStaffAuth } from "@/state/staff-auth";
 import { NotificationBell } from "@/components/staff/NotificationBell";
 import { ConnectionDemoButton } from "@/components/common/ConnectionBanner";
+import { VerificationPendingGate } from "@/components/staff/VerificationPendingGate";
 
 export function StaffShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -31,6 +32,33 @@ export function StaffShell({ children }: { children: ReactNode }) {
   const { alerts } = useStaffStore();
   const { user, signOut } = useStaffAuth();
   const unread = alerts.filter((a) => !a.acknowledged).length;
+
+  if (user?.verificationStatus === "PENDING" || user?.verificationStatus === "REJECTED") {
+    return (
+      <div className="min-h-dvh bg-background flex flex-col">
+        <header className="flex h-16 items-center justify-between border-b px-6 bg-surface/50 backdrop-blur-sm sticky top-0 z-50">
+          <div className="flex items-center gap-3">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <Activity className="size-4" />
+            </span>
+            <div>
+              <span className="font-semibold leading-tight text-foreground block">Smart OPD</span>
+              <span className="text-xs text-muted-foreground block">Clinical Operations</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground hidden sm:inline">Signed in as <strong>{user.email}</strong></span>
+            <Button variant="outline" size="sm" onClick={signOut}>
+              <LogOut className="mr-2 size-4" /> Sign Out
+            </Button>
+          </div>
+        </header>
+        <main className="flex-1 flex items-center justify-center p-4">
+          <VerificationPendingGate />
+        </main>
+      </div>
+    );
+  }
 
   const nav = [
     { to: "/staff", label: "Dashboard", icon: LayoutDashboard, exact: true },

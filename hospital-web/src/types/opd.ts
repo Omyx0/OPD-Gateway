@@ -29,6 +29,7 @@ export interface QueueEntry {
   symptomsSummary: string;
   triageSummary: string;
   flags: string[];
+  isSeed?: boolean;
 }
 
 export interface EmergencyAlert {

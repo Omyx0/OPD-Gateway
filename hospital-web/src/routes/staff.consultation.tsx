@@ -24,6 +24,8 @@ import { API_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { findGenericEquivalent, PMBJP_DRUG_DATABASE } from "@/lib/janAushadhi";
+import { HindiVoiceAssistant } from "@/components/prescriptions/HindiVoiceAssistant";
 
 export const Route = createFileRoute("/staff/consultation")({
   head: () => ({
@@ -534,10 +536,33 @@ function DoctorConsultationPage() {
                   </div>
 
                   {/* Plan / Rx */}
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                      (P) Plan — Rx & Treatment Instructions
-                    </label>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        (P) Plan — Rx & Treatment Instructions
+                      </label>
+                      <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        PMBJP Jan Aushadhi & Hindi Audio Enabled
+                      </span>
+                    </div>
+
+                    {/* Quick Drug Add Buttons */}
+                    <div className="flex flex-wrap gap-1 pb-1">
+                      {PMBJP_DRUG_DATABASE.slice(0, 4).map((med) => (
+                        <button
+                          key={med.brandedName}
+                          type="button"
+                          onClick={() => {
+                            const newPlan = plan ? `${plan}\n• ${med.brandedName} — ${med.dosage}` : `• ${med.brandedName} — ${med.dosage}`;
+                            setPlan(newPlan);
+                          }}
+                          className="rounded-md bg-muted hover:bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-foreground border border-border/60 transition-colors"
+                        >
+                          + {med.brandedName.split(" ")[0]}
+                        </button>
+                      ))}
+                    </div>
+
                     <textarea
                       rows={3}
                       value={plan}
@@ -545,6 +570,46 @@ function DoctorConsultationPage() {
                       placeholder="Prescriptions (Drug name, dosage, frequency), diet, rest..."
                       className="w-full rounded-xl border border-border bg-background p-2.5 text-xs focus:border-primary focus:outline-none"
                     />
+
+                    {/* Jan Aushadhi Generic Salt & Savings Matching */}
+                    {(() => {
+                      const detected = PMBJP_DRUG_DATABASE.find(
+                        (d) => plan.toLowerCase().includes(d.brandedName.toLowerCase().split(" ")[0].toLowerCase())
+                      ) || (plan ? findGenericEquivalent(plan) : null);
+
+                      if (!detected) return null;
+
+                      return (
+                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider">
+                                Jan Aushadhi (PMBJP) Alternative
+                              </span>
+                              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                                Save {detected.savingsPercent}%
+                              </span>
+                            </div>
+                            <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                              ₹{detected.janAushadhiPriceInr} vs <s className="text-muted-foreground">₹{detected.brandedPriceInr}</s>
+                            </span>
+                          </div>
+
+                          <div className="text-xs">
+                            <span className="text-muted-foreground block text-[11px]">Chemical Salt Equivalent:</span>
+                            <span className="font-semibold text-foreground">{detected.genericSalt}</span>
+                          </div>
+
+                          {/* Accessible Hindi Voice Assistant */}
+                          <HindiVoiceAssistant
+                            medicationName={detected.genericSalt}
+                            hindiText={detected.directionsHindi}
+                            englishText={detected.directionsEnglish}
+                            patientName={selectedVisit.visits?.patients?.full_name}
+                          />
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Disposition & Follow-up */}
